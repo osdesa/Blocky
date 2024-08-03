@@ -1,0 +1,22 @@
+[INFO]         : Opened logging file 'log.txt'
+[KEY INFO]     : Program Start
+[KEY INFO]     : Create window
+[KEY INFO]     : Glad initilzed
+[KEY INFO]     : Clock started
+[KEY INFO]     : Camera Init
+[INFO]         : Font handler init
+[KEY INFO]     : -----------Main start loop------------
+[KEY INFO]     : Creating new world Seed: 667722681 : 477 : size 900: 
+[INFO]         : Block for ungenerated chunk count : 0
+[INFO]         : Block for ungenerated chunk count : 1
+[INFO]         : Block for ungenerated chunk count : 2
+[INFO]         : Block for ungenerated chunk count : 3
+[INFO]         : Block for ungenerated chunk count : 4
+[INFO]         : Block for ungenerated chunk count : 5
+[INFO]         : Block for ungenerated chunk count : 6
+[INFO]         : Block for ungenerated chunk count : 7
+[INFO]         : Block for ungenerated chunk count : 8
+[KEY INFO]     : world generated
+[KEY INFO]     : -------------Main loop end------------
+[INFO]         : Closing program gracefully
+[INFO]         : destroying font handler

@@ -1,0 +1,282 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="app\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\dependencies\GLAD\src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\core\window.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\app.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\core\input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\math\vector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\math\matrix.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\clock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\VertexBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\IndexBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\VBLayout.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\VertexArray.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\shader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\renderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\block.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\chunk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\SpriteSheet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\world.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\sky\sun.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\core\utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\sky\CelestialModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\include\world\sky\moon.h">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\world\sky\moon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\UI\Font.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\graphics\primitives\rect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\UI\Button.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\UI\UIManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\core\GameState.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\UI\inputBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\core\aabb.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="app\src\math\VectorBase.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\include\app.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\core\window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\core\input.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\logger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\defines.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\math\BMath.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\math\Graphics.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\math\matrix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\math\vector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\clock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\VertexBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\IndexBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\VertexArray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\VBLayout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\Texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\block.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\chunk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\block_types.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\SpriteSheet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\world.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\external\FastNoiseLite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\NoiseGenerator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\sky\sun.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\core\utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\world\sky\CelestialModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\UI\Font.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\graphics\primitives\rect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\UI\Button.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\UI\UIManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\core\GameState.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\UI\inputBox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\core\aabb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="app\include\math\VectorBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app\res\shaders\vertex.glsl" />
+    <None Include="app\res\shaders\fragment.glsl" />
+    <None Include="lines.py" />
+    <None Include="app\res\shaders\waterFrag.glsl" />
+    <None Include="app\res\shaders\waterVertex.glsl" />
+    <None Include="app\res\shaders\skyboxFrag.glsl" />
+    <None Include="app\res\shaders\skyboxVert.glsl" />
+    <None Include="app\res\shaders\SkyFrag.glsl" />
+    <None Include="app\res\shaders\skyVert.glsl" />
+    <None Include="app\res\shaders\fontVert.glsl" />
+    <None Include="app\res\shaders\fontFragment.glsl" />
+    <None Include="app\res\shaders\buttonVert.glsl" />
+    <None Include="app\res\shaders\buttonFrag.glsl" />
+    <None Include="app\res\shaders\btnTexturedVert.glsl" />
+    <None Include="app\res\shaders\btnTextureFrag.glsl" />
+    <None Include="app\res\shaders\modelVert.glsl" />
+    <None Include="app\res\shaders\modelFrag.glsl" />
+    <None Include="ClassDiagram.cd" />
+    <None Include="ClassDiagram1.cd" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="app\res\textures\SpriteSheet.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="..\..\..\..\..\Music\sides.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\skybox\base.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\skybox\sides.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\skybox\top.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\sun.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\moon.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="app\res\textures\crosshair.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="app\res\fonts\comic.ttf" />
+    <Font Include="app\res\fonts\PixelEmulator-xq08.ttf" />
+  </ItemGroup>
+</Project>

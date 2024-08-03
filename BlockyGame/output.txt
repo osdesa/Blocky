@@ -1,0 +1,5374 @@
+
+App/Include/App.H
+#pragma once
+
+#include "app.h"
+
+#include <stdint.h>
+#include "logger.h"
+#include <iostream>
+#include "math/BMath.h"
+#include "clock.h"
+#include "graphics/VertexBuffer.h"
+#include "graphics/IndexBuffer.h"
+#include "graphics/VertexArray.h"
+#include "graphics/shader.h"
+#include <graphics/renderer.h>
+#include "camera.h"
+#include "graphics/Texture.h"
+#include "world/block.h"
+#include "world/chunk.h"
+#include "world/block_types.hpp"
+#include "UI/UIManager.h"
+#include <iostream>
+#include <vector>
+#include <array>
+#include <cstdint>
+#include <world/world.h>
+#include <world/sky/sun.h>
+
+namespace Blocky {
+	class App : Renderer
+	{
+	private:
+		Window* window{};
+		const int width = 1920;
+		const int height = 1080;
+		const char* title = "Blocky";
+		const Vec3 defultSkyColour = { 135 / 255.0f, 206 / 255.0f, 235 / 255.0f };
+		const Vec3 nightSky = { 0.01, 0.01, 0.1 };
+
+		Vec3 skyColour = defultSkyColour;
+		Clock clock{};
+
+		void SetUp();
+		void CheckGamestate(Camera& camera);
+		void ChangeColour(float roation);
+
+		void InitMenuUI(Camera& cam);
+		void InitPreGame(Camera& cam);
+		void InitSettings(Camera& cam);
+		void InitInGameUI(Camera& cam);
+
+		void DrawWorld(Camera& cam);
+
+		World world;
+		UIManager uiManager{ (float)width, (float)height,"app/res/fonts/", "font.ttf" };
+
+
+	public:
+		void Start();
+		App() {};
+	};
+}
+App/Include/Clock.H
+#pragma once
+
+#include <chrono>
+
+namespace Blocky {
+
+	class Clock
+	{
+	private:
+		std::chrono::system_clock::time_point startTime;
+		std::chrono::high_resolution_clock::time_point frameStart;
+		float deltaTime = 0;
+		int FPS = 0;
+		float frameTime = 0;
+		long frameCount = 0;
+
+
+	public:
+		void Start();
+		void NewFrame();
+
+		inline float DT() { return deltaTime; };
+		inline int GetFPS() { return FPS; };
+		inline float GetFameTime() { return frameTime; };
+	};
+}
+App/Include/Camera.H
+#pragma once
+
+#include "logger.h"
+#include "math/BMath.h"
+#include "core/window.h"
+#include "core/input.h"
+#include "clock.h"
+#include <core/aabb.h>
+
+namespace Blocky {
+
+    class Camera
+    {
+    public:
+        Camera() = default;
+
+        Camera(Window* win, Clock* _clock, int w_Width, int w_Height);
+        Matrix4x4 Look();
+        void Move(float deltaTime);
+        void SetPos(Vec3 pos) { CameraPos = pos; }
+
+        inline void ChangeSens(float sens) { sensitivity = sens; }
+        inline float GetFOV() { return fov; }
+        inline void ResetMove() { CameraPos = tempPos; View = Look(); }
+        inline AABB GetAABB() { return aabb; }
+        void Update(float dt);
+
+        Vec3 GetPosition() { return CameraPos; }
+        Vec3 GetLastPosition() { return lastPos; }
+
+        Matrix4x4 GetModel() { return Model; }
+        Matrix4x4 GetProjection() { return Projection; }
+        Matrix4x4 GetView() { return View; }
+        Matrix4x4 GetTextProjection() { return textProjection; }
+
+    private:
+        Window* window;
+        Clock* clock;
+
+        void UpdateAABB();
+
+        int width;
+        int height;
+
+        Matrix4x4 Model;
+        Matrix4x4 View;
+        Matrix4x4 Projection;
+        Matrix4x4 textProjection;
+
+        Vec3 CameraPos;
+        Vec3 lastPos;
+        Vec3 cameraTarget;
+        Vec3 CameraDirection;
+        Vec3 CameraFront;
+        Vec3 Up;
+        Vec3 CameraRight;
+        Vec3 CameraUp;
+        Vec3 Direction;
+        Vec3 tempPos;
+
+        Vec3 Min;
+        Vec3 Max;
+        AABB aabb;
+
+        float lastX = 1920 / 2;
+        float lastY = 1080 / 2;
+        const float cameraSpeed = 5.0f;
+        float sensitivity = 0.20f;
+        const float defultFov = 90.0f;
+        float fov = 90.0f;
+        float yaw = -90.0f;
+        float pitch = 0.0f;
+
+        float near = 0.001f;
+        float far = 100.0f;
+        float right = 1920.0f;
+        float left = 0.0f;
+        float top = 1920.0f;
+        float bottom = 0.0f;
+
+        uint32_t startX = 16 * 16;
+        uint32_t startZ = 16 * 16;
+    };
+}
+App/Include/Defines.H
+#define RELEASE         false
+#define SHOWFPS			false
+#define WATERLEVEL		35
+// COLOURS
+#define BLUE            3
+#define DARKBLUE        9
+#define YELLOW          6
+#define GREEN			2
+#define RED             4
+#define GREY            7
+#define WHITE			15
+
+// Win message codes
+#define KEYDOWN         258
+#define KEYUP           257
+#define MOUSEMOVED      512
+#define LEFTMOUSECLK    513
+#define LEFTMOUSEUP     514
+#define RIGHTMOUSECLK   516
+#define RIGHTMOUSEUP    517
+
+// Keys
+#define ESC             27
+
+// Maths
+
+App/Include/Logger.H
+#pragma once
+#include "defines.h"
+#include <fstream>
+#include <cstdarg>
+
+enum error_levels{ FATAL = 0, CRITICAL = 1, WARNING = 2, VALIDATION = 3, KEYINFO = 4 ,INFO = 5 };
+
+class Logger
+{
+private:
+	const char* filepath = 0;
+	std::fstream logFile;
+
+	Logger() {}
+	Logger(const Logger&) = delete;
+	Logger& operator= (const Logger&) = delete;
+	static Logger& get_instance();
+
+public:
+	static void init(const char* filePath);
+
+	static void output(error_levels level, const char* msg,...);
+	static void shutdown();
+};
+
+App/Include/World/Block.H
+#pragma once
+#include <cstdint>
+#include "math/BMath.h"
+#include <vector>
+#include "block_types.hpp"
+#include "chunk.h"
+#include "external/FastNoiseLite.h"
+
+namespace Blocky {
+
+
+	enum FaceId {
+		top = 0,
+		front = 1,
+		back = 2,
+		left = 3,
+		right = 4,
+		bottom = 5,
+	};
+
+	class Block
+	{
+	private:
+		int x;
+		int y;
+		int z;
+
+		static const int CHUNK_WIDTH = 16;
+		static const int CHUNK_DEPTH = 16;
+		static const int CHUNK_HEIGHT = 128;
+
+		int facesPlaced;
+		int textureIndex;
+
+		std::vector<float> vetexData;
+		std::vector<uint32_t> indices;
+
+		void AddFace(float faces[20], FaceId face);
+		void AddTextureFace(FaceId face);
+
+		void AddZFacePos(int localX, int localZ, uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT]);
+		void AddXFacePos(int localX, int localZ, uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT]);
+		void TryAddFaceOutsideChunk(int xPos, int zPos, float faces[20], FaceId id);
+
+		int GetHeight(int x, int y);
+
+		std::map<Vec2, int>& heights;
+		FastNoiseLite lNoise;
+
+	public:
+		Block(uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT], BlockData& blockTexCoords
+			, float offsetX, float offsetY, float offsetZ, std::map<Vec2, int>& hightMap, FastNoiseLite noise);
+
+		int GetFaces() { return facesPlaced; }
+
+		std::vector<float> GetVertexData() { return vetexData; }
+		std::vector<uint32_t> GetIndices() { return indices; }
+
+		BlockData& texCoords;
+
+	private:
+		float frontFace[20] = {
+			1,1,1,1,1,
+			0,1,1,1,0,
+			0,0,1,0,0,
+			1,0,1,0,1,
+		};
+
+		float backFace[20] = {
+			1,0,0,1,1,
+			0,0,0,1,0,
+			0,1,0,0,0,
+			1,1,0,0,1,
+		};
+
+		float topFace[20] = {
+			1,1,1,1,1,
+			1,1,0,0,1,
+			0,1,0,0,0,
+			0,1,1,0,1,
+		};
+
+
+		float waterTopFace[20] = {
+			1,0.7,1,1,1,
+			1,0.7,0,0,1,
+			0,0.7,0,0,0,
+			0,0.7,1,0,1,
+		};
+
+		float bottomFace[20] = {
+			1,0,1,1,1,
+			0,0,1,0,1,
+			0,0,0,0,0,
+			1,0,0,0,1,
+		};
+
+		float rightFace[20] = {
+			0,1,1,1,1,
+			0,1,0,0,1,
+			0,0,0,0,0,
+			0,0,1,0,1,
+		};
+
+		float leftFace[20] = {
+			1,1,1,1,1,
+			1,0,1,0,1,
+			1,0,0,0,0,
+			1,1,0,0,1,
+		};
+
+		uint32_t indexs[6] = {
+			0,1,2,2,3,0
+		};
+
+	};
+}
+App/Include/World/World.H
+#pragma once
+
+
+#include "logger.h"
+#include "math/BMath.h"
+#include "clock.h"
+#include "graphics/VertexArray.h"
+#include "graphics/shader.h"
+#include <graphics/renderer.h>
+#include "camera.h"
+#include "world/block.h"
+#include "world/chunk.h"
+#include "core/aabb.h"
+#include "world/block_types.hpp"
+
+#include <map>
+#include <array>
+#include <cstdint>
+#include <array>
+#include "sky/moon.h"
+#include "sky/sun.h"
+#include <set>
+
+namespace Blocky {
+	class World
+	{
+	public:
+		World();
+		void CreateWorld(Camera& camera);
+		void Draw(Camera& camera, Clock& clock);
+		void update(Camera& camera, Clock& clock);
+		std::vector<Chunk> chunks;
+		inline double GetRotation() { return sunRotation; }
+
+	private:
+		int hashWorldSeed(const char* seed);
+		bool CheckCollide(AABB aabb);
+		int inChunk(Vec3 pos);
+		void PlaceBlocks(std::map<Vec3, uint32_t> blocks);
+		void InfiteWorldGen();
+		void GenerateChunk(Vec3& location);
+		void GeneratePrePlan();
+		int RoundPow2(int number, int factor);
+
+		std::string GenRandomSeed();
+		std::vector<Chunk> left;
+		std::vector<Chunk> right;
+		std::unordered_map<uint32_t, BlockData> textureLocs;
+		std::map<Vec3, bool> chunksToGen;
+		std::map<Vec3, uint32_t> blocksToPlace;
+		std::map<Vec3, uint32_t> blocksToPlaceCold;
+		std::map<Vec2, int> hightMap;
+		FastNoiseLite noise;
+
+		int maxChunksGenerated = 2;
+		bool underWater;
+		float sunRotation;
+
+		Sun sun;
+		Moon moon;
+		Vec3 playerPos;
+
+		Chunk chunk;
+		VertexArray va;
+		VertexArray waterva;
+
+		Shader shader;
+		Shader waterShader;
+
+		std::vector<std::string> faces
+		{
+			"sides.png",
+			"sides.png",
+			"top.png",
+			"base.png",
+			"sides.png",
+			"sides.png"
+		};
+
+		void MergeComb(std::vector<Chunk>& arr, int start, int mid, int end);
+		void mergeSort(std::vector<Chunk>& arr, int start, int end);
+	};
+}
+App/Include/World/Chunk.H
+#pragma once
+
+#include <vector>
+#include "camera.h"
+#include "graphics/VertexBuffer.h"
+#include "graphics/IndexBuffer.h"
+#include "graphics/VertexArray.h"
+#include "graphics/shader.h"
+#include <graphics/renderer.h>
+#include "graphics/Texture.h"
+
+#include <map>
+#include "world/block_types.hpp"
+
+#include <vector>
+#include <array>
+#include "external/FastNoiseLite.h"
+
+#include <cstdint>
+
+namespace Blocky {
+	class Chunk : Renderer
+	{
+	public:
+
+		Chunk() {};
+		~Chunk();
+
+		Chunk(const Chunk&) = delete;
+		Chunk& operator=(const Chunk&) = delete;
+		Chunk (Chunk&& rhs) noexcept
+		{
+			Logger::output(WARNING, "should not happen Chunk non implement function");
+		}
+
+		Chunk& operator=(Chunk&& rhs) noexcept {
+			va = std::move(rhs.va);
+			waterVao = std::move(rhs.waterVao);
+
+			ib = std::move(rhs.ib);
+			waterIb = std::move(rhs.waterIb);
+
+			vb = std::move(rhs.vb);
+			waterVb = std::move(rhs.waterVb);
+
+			chunkShader = std::move(rhs.chunkShader);
+			waterShader = std::move(rhs.waterShader);
+
+			texture = std::move(rhs.texture);
+
+			vertexData = std::move(rhs.vertexData);
+			indicesData = std::move(rhs.indicesData);
+			waterVertexData = std::move(rhs.waterVertexData);
+			waterIndicesData = std::move(rhs.waterIndicesData);
+
+			blockMeshData = std::move(rhs.blockMeshData);
+			centx = std::move(rhs.centx);
+			centz = std::move(rhs.centz);
+			center = std::move(rhs.center);
+			pythaDis = std::move(rhs.pythaDis);
+			seed = std::move(rhs.seed);
+
+			return *this;
+		}
+
+		void Shape(VertexArray& vao, VertexArray& waterVa, Shader& shader, Shader& WaterShader, int centerX, int centerZ,
+			FastNoiseLite noise, std::map<Vec2, int>& hightMap, int hash);
+
+		void GenerateMesh(std::unordered_map<uint32_t, BlockData>& texLoc, std::map<Vec2, int>& hightMap, FastNoiseLite noise);
+		std::map<Vec3, uint32_t>& GenerateDetails(std::unordered_map<uint32_t, BlockData>& texLoc, std::map<Vec2, int>& hightMap, FastNoiseLite noise, std::map<Vec3, uint32_t>& blocksToPlace);
+		std::map<Vec3, uint32_t>& PlaceTree(int x, int z, int y, std::map<Vec3, uint32_t>& blocksToPlace, BlockTypes type);
+		void SetBlock(int x, int y, int z, uint32_t blockType);
+
+		std::vector<float> GetVertexData() { return vertexData; }
+		std::vector<uint32_t> GetIndices() { return indicesData; }
+
+		void Draw(Camera& camera, bool underWater, float lightValue);
+
+		// pythagoren distance
+		float distance() { return (centx * centx) + (centz * centz); }
+		const float GetDistance() { return pythaDis; }
+		void SetDistance(Vec3& playerPos);
+		inline Vec2 GetCenter() { return center; }
+		inline uint8_t GetBlock(int x, int y, int z) { return blockMeshData[x][z][y]; }
+		inline auto GetMeshData() { return blockMeshData;}
+		inline void ForceSetDist(float dist) { pythaDis = dist; }
+
+	private:
+		std::vector<float> vertexData;
+		std::vector<uint32_t> indicesData;
+
+		std::vector<float> waterVertexData;
+		std::vector<uint32_t> waterIndicesData;
+
+		std::vector<std::vector<std::vector<uint8_t>>> blockMeshData;
+
+		VertexArray va;
+		VertexBuffer vb;
+		IndexBuffer ib;
+		Texture texture;
+		Shader chunkShader;
+
+		VertexArray waterVao;
+		VertexBuffer waterVb;
+		IndexBuffer waterIb;
+		Shader waterShader;
+
+		static const int CHUNK_WIDTH  = 16;
+		static const int CHUNK_DEPTH  = 16;
+		static const int CHUNK_HEIGHT = 128;
+
+		int centx;
+		int centz;
+		Vec2 center;
+		float pythaDis;
+		int seed;
+
+	};
+}
+
+App/Include/World/Noisegenerator.H
+#pragma once
+
+#include "external/FastNoiseLite.h"
+#include <map>
+#include <math/vector.h>
+
+namespace Blocky {
+	class NoiseGen
+	{
+	public:
+		static int GetHeight(int x, int z, FastNoiseLite noise, std::map<Vec2, int>& heights)
+		{
+			int maxHeight = 0;
+			Vec2 loc = Vec2(x, z);
+			if (heights.find(loc) == heights.end()) {
+				// not cached yet
+				maxHeight = floor(40 + noise.GetNoise((float)x, (float)z) * 35);
+				heights[loc] = maxHeight;
+			}
+			else {
+				maxHeight = heights[loc];
+			}
+			return maxHeight;
+		}
+	};
+}
+App/Include/World/Sky/Sun.H
+#pragma once
+
+#include "math/BMath.h"
+#include <camera.h>
+#include <graphics/renderer.h>
+#include <graphics/Texture.h>
+#include "CelestialModel.h"
+
+namespace Blocky {
+	class Sun : public CelestialModel
+	{
+	public:
+		void Create(Camera& camera) override;
+	};
+}
+App/Include/World/Sky/Moon.H
+#pragma once
+#include "CelestialModel.h"
+
+namespace Blocky {
+	class Moon : public CelestialModel
+	{
+	public:
+		void Create(Camera& camera) override;
+	};
+}
+App/Include/World/Sky/Celestialmodel.H
+#pragma once
+
+#include "math/BMath.h"
+#include <camera.h>
+#include <graphics/renderer.h>
+#include <graphics/Texture.h>
+
+namespace Blocky {
+	class CelestialModel : Renderer
+	{
+	public:
+		virtual void Create(Camera& camera);
+		void Draw(Camera& cam, float DT);
+		float GetRotation() { return angle; }
+
+	protected:
+		VertexArray va;
+		VertexBuffer vb;
+		IndexBuffer ib;
+		Texture texture;
+		Shader shader;
+		Vec3 posistion;
+
+		float size = 1;
+		double angle = 0.0f;
+		float scaleFactor = 75.0f;
+		int distance = 4000;
+		float offset = 0.0001f;
+
+		float rect[40] = {
+			size,size,size,1,1,
+			size,size,-size,0,1,
+			-size,size,-size,0,0,
+			-size,size,size,0,1,
+			size + offset,-size + offset,size + offset,    1,1,
+			-size + offset,-size + offset,size + offset, 0,1,
+			-size + offset,-size + offset,-size + offset,0,0,
+			size + offset,-size + offset,-size + offset, 0,1,
+		};
+
+		uint32_t indices[12] = {
+			0,1,2,2,3,0,
+			4,5,6,6,7,4
+		};
+	};
+}
+App/Include/Core/Window.H
+#pragma once
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include "core/input.h"
+
+class Window
+{
+public:
+	int windowWidth;
+	int windowHeight;
+	GLFWwindow* window;
+	
+	void InstallMainCallback();
+	void Close();
+
+	static Window* CreateWindow(int width, int height, const char* title, bool fullScreen = false);
+	static void FreeWindow(Window* window);
+};
+App/Include/Core/Aabb.H
+#pragma once
+#include <math/vector.h>
+
+namespace Blocky {
+	class AABB
+	{
+	public:
+		static bool collide(AABB a, AABB b);
+		inline void Update(Vec3 newMin, Vec3 newMax) { min = newMin; max = newMax; }
+		inline Vec3 GetMin() { return min; }
+		inline Vec3 GetMax() { return max; }
+	private:
+		Vec3 min;
+		Vec3 max;
+	};
+}
+App/Include/Core/Gamestate.H
+#pragma once
+#include <string>
+
+namespace GameState
+{
+	extern bool menu;
+	extern bool game;
+	extern bool preGame;
+	extern bool settings;
+	extern bool inGameSettings;
+	
+	extern bool update;
+	extern bool quit;
+	extern bool loadWorld;
+	extern bool firstLoad;
+	extern std::string currentText;
+	extern float mouseSens;
+	extern bool ChangedSens;
+	extern bool fullScreen;
+	extern bool infinte;
+
+	extern int chunkSize;
+	extern int worldSize;
+	extern std::string seed;
+
+	void Reset();
+	void Menu();
+	void Game();
+	void PreGame();
+	void SettingsMenu();
+	void Quit();
+	void ChangeMouseSensitivy();
+	void UpdateWorldSize();
+	void SetSeed();
+	void SetInfinte();
+}
+App/Include/Core/Utils.H
+
+App/Include/Core/Input.H
+#pragma once
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+namespace Input
+{
+	extern bool keyPressedData[GLFW_KEY_LAST];
+	extern bool mouseButtonPressedData[GLFW_MOUSE_BUTTON_LAST];
+	extern float mouseX;
+	extern float mouseY;
+	extern float mouseScrollX;
+	extern float mouseScrollY;
+	extern char currentKey;
+
+	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	void mouseCallback(GLFWwindow* window, double xpos, double ypos);
+	void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+	void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+
+	bool isKeyDown(int key);
+	bool isMouseButtonDown(int mouseButton);
+}
+App/Include/Ui/Button.H
+#pragma once
+
+#include "graphics/primitives/rect.h"
+#include <functional>
+#include <iostream>
+#include "graphics/primitives/rect.h"
+
+namespace Blocky {
+
+
+	class Button : Rect
+	{
+	public:
+		void Create(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour, Vec3 hoverColour, std::function<void()> btnCallback);
+		bool CheckClick(Vec2 MousePos);
+		void Draw();
+		void CheckHover(Vec2 MousePos);
+		void SetHover();
+		void ChangeColour();
+		void Reset();
+		void CallCallback();
+		inline uint32_t GetId() { return RGetVaoId(); }
+		bool IsClicked() { return clicked; }
+
+		Button() {};
+
+	private:
+		Vec3 defultColour;
+		Vec3 ActionColour;
+		Vec3 HoverColour;
+		std::function<void()> callback;
+		bool clicked;
+	};
+}
+App/Include/Ui/Inputbox.H
+#pragma once
+#include <math/vector.h>
+#include <graphics/primitives/rect.h>
+
+namespace Blocky {
+	class InputBox : Rect
+	{
+	public:
+		InputBox() {};
+
+		void Create(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour, uint32_t i_id);
+		bool CheckClick(Vec2 mousePos);
+		void Draw();
+		void SetAction();
+
+		inline uint32_t GetVao() { return RGetVaoId(); }
+		inline uint32_t GetId() { return id; }
+		inline void Reset() { RChangeColour(defultColour); }
+		bool GetReset();
+
+	private:
+		Vec3 defultColour;
+		Vec3 ActionColour;
+		std::string text;
+		uint32_t id;
+		bool reset = true;
+	};
+}
+App/Include/Ui/Uimanager.H
+#pragma once
+
+#include "Button.h"
+#include "Font.h"
+#include "inputBox.h"
+
+namespace Blocky {
+	class UIManager
+	{
+	private:
+		std::array<Button, 10> buttons;
+		std::array<Rect, 10> rects;
+		std::array<InputBox, 10> inputBoxs;
+		uint8_t btnCount = 0;
+		uint8_t rectCount = 0;
+		uint8_t inputBoxCount = 0;
+
+		std::string directory;
+		std::string fontName;
+
+		uint32_t maxId;
+
+		int buttonClickedId;
+		float width;
+		float height;
+		float midWidth;
+		float midHeight;
+		bool validClick;
+		bool clicked;
+		uint32_t selectedId;
+		bool typeText;
+
+	public:
+		UIManager() {};
+		UIManager(float winWidth, float winHeight, std::string dir, std::string font);
+		UIManager(const UIManager&) = delete;
+		UIManager& operator=(const UIManager&) = delete;
+
+		Font textHandler{};
+
+		void Init(Camera& camera);
+		void ClearUI();
+		void RendererUI();
+		void Update();
+
+		inline bool ValidClick() { return validClick; }
+		inline void SetValidClick() { validClick = true; }
+
+		// Rects
+		void AddRect(Camera& camera, Vec2 left, Vec2 right, Vec3 colour);
+		void AddRectTextured(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, std::string name);
+		void DrawRects();
+
+		// Input Box
+		void AddInputBox(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour);
+		void RenderInput();
+		void CheckClick(Vec2 mousePos);
+		void AddText(char c);
+
+		//text
+		void AddText(std::string text, float x, float y, float scale, Vec3 color, bool clear);
+		void AddText(std::string text, float y, float scale, Vec3 color, bool clear);
+		void DrawText();
+
+		// Button
+		void AddButton(Camera& camera, std::string text, float x, float scale, Vec3 textColour, bool clear,
+			Vec2 left, Vec2 right, std::function<void()> btnCallback, Vec3 BackgroundColour = { 0.5,0.5,0.5 }, Vec3 actionColour = { 0.8,0.2,0.2 }, Vec3 hoverColour = { 0.4,0.4,0.4 }, bool centerd = true);
+		bool CheckClicked(Vec2 mousePos);
+		void CheckHover(Vec2 mousePos);
+		void DrawButtons();
+		void ResetAll();
+	};
+}
+App/Include/Ui/Font.H
+#pragma once
+
+#include <string>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include "math/BMath.h"
+#include <map>
+#include "graphics/Texture.h"
+#include "graphics/IndexBuffer.h"
+#include "graphics/VertexArray.h"
+#include "graphics/Shader.h"
+#include "graphics/renderer.h"
+#include <camera.h>
+
+namespace Blocky {
+	class Font : Renderer
+	{
+	public:
+		Font() {};
+		~Font();
+		void Create(std::string dir, std::string name);
+		void InitCharacters();
+		void SetProjection(Camera camera);
+		void AddText(std::string text, float x, float y, float scale, Vec3 color, bool clear, uint32_t id);
+		void RenderText();
+		float GetTextSize(std::string text, float scale);
+		void Clear();
+		void Update(uint32_t id, char c, bool reset);
+	private:
+		struct Character {
+			unsigned int TextureID;
+			Vec2   Size;
+			Vec2   Bearing;
+			unsigned int Advance;
+		};
+		struct Text {
+			std::string text;
+			float   x;
+			float   y;
+			float   scale;
+			Vec3	Colour;
+			bool	toClear;
+			uint32_t id;
+		};
+		Shader shader;
+		VertexArray va;
+		VertexBuffer vb;
+		VBLayout layout{};
+
+		std::vector<Text> queuedText;
+		std::map<char, Character> Characters;
+
+		FT_Library ft;
+		FT_Face face;
+
+		std::string fontName;
+		std::string directory;
+	};
+};
+App/Include/Math/Vector.H
+#pragma once
+/**
+ * Two component vector class
+**/
+
+#include <iostream>
+namespace Blocky {
+	class Vec2
+	{
+	public:
+		float x;
+		float y;
+		/// Init Vec2 to 0,0
+		Vec2();
+		/// Init Vec2 to given vec2 values
+		Vec2(const Vec2& vector);
+
+		/**
+		* 	Init Vec2 to given float
+		*	\param float x \param float y
+		**/
+		Vec2(float value);
+
+		/**
+		* 	Init Vec2 to given float
+		*	\param float x \param float y
+		**/
+		Vec2(float _x, float _y);
+
+		~Vec2() {};
+
+
+		Vec2 operator+(const Vec2& v) {
+			Vec2 temp(0.0f);
+			temp.x = x + v.x;
+			temp.y = y + v.y;
+			return temp;
+		}
+		Vec2 operator-(const Vec2& v) {
+			Vec2 temp(0.0f);
+			temp.x = x - v.x;
+			temp.y = y - v.y;
+			return temp;
+		}
+		Vec2 operator*(const float m) {
+			Vec2 temp(0.0f);
+			temp.x = x * m;
+			temp.y = y * m;
+			return temp;
+		}
+		Vec2 operator+(const float m) {
+			Vec2 temp(0.0f);
+			temp.x = x + m;
+			temp.y = y + m;
+			return temp;
+		}
+		//...
+
+		bool operator < (const Vec2& rhs) const {
+			return std::tie(x, y) < std::tie(rhs.x, rhs.y);
+		}
+
+		/**
+		* 	Changes vector values to those given
+		*	\param float x \param float y
+		**/
+		void Set(float _x, float _y);
+
+		/**
+		* 	Return x value
+		*	\return float x
+		**/
+		float X() { return x; }
+
+		/**
+		* 	Return y value
+		*	\return float y
+		**/
+		float Y() { return y; }
+
+		bool operator() (Vec2 v1, Vec2 v2) const
+		{
+			return v1.x == v2.x &&
+				v1.y == v2.y;
+		}
+	};
+
+	/**
+	 * Three component vector class
+	**/
+	class Vec3
+	{
+	public:
+		float x;
+		float y;
+		float z;
+		/// Init Vec3 to 0,0,0
+		Vec3();
+		/// Init Vec3 to given vec3 values
+		Vec3(const Vec3& vector);
+		/**
+		* 	Init Vec3 to given float
+		*	\param float x \param float y
+		**/
+		Vec3(float value);
+
+		/**
+		* 	Init Vec3 to given float
+		*	\param float x \param float y
+		**/
+		Vec3(float _x, float _y, float _z);
+
+		~Vec3() {};
+
+
+		bool operator==(const Vec3 v) {
+			return (v.x == x) && (v.y == y) && (v.z == z);
+		}
+		Vec3 operator+(const Vec3& v) {
+			Vec3 temp(0.0f);
+			temp.x = x + v.x;
+			temp.y = y + v.y;
+			temp.z = z + v.z;
+			return temp;
+		}
+		Vec3 operator-(const Vec3& v) {
+			Vec3 temp(0.0f);
+			temp.x = x - v.x;
+			temp.y = y - v.y;
+			temp.z = z - v.z;
+			return temp;
+		}
+		Vec3 operator*(const Vec3& v) {
+			Vec3 temp(0.0f);
+			temp.x = x * v.x;
+			temp.y = y * v.y;
+			temp.z = z * v.z;
+			return temp;
+		}
+		Vec3 operator/(const Vec3& v) {
+			Vec3 temp(0.0f);
+			temp.x = x / v.x;
+			temp.y = y / v.y;
+			temp.z = z / v.z;
+			return temp;
+		}
+
+		Vec3 operator+(const float v) {
+			Vec3 temp(0.0f);
+			temp.x = x + v;
+			temp.y = y + v;
+			temp.z = z + v;
+			return temp;
+		}
+		Vec3 operator-(const float v) {
+			Vec3 temp(0.0f);
+			temp.x = x - v;
+			temp.y = y - v;
+			temp.z = z - v;
+			return temp;
+		}
+		Vec3 operator*(const float v) {
+			Vec3 temp(0.0f);
+			temp.x = x * v;
+			temp.y = y * v;
+			temp.z = z * v;
+			return temp;
+		}
+		Vec3 operator/(const float v) {
+			Vec3 temp(0.0f);
+			temp.x = x / v;
+			temp.y = y / v;
+			temp.z = z / v;
+			return temp;
+		}
+		bool operator() (Vec3 v1, Vec3 v2) const
+		{
+			return v1.x == v2.x &&
+				v1.y == v2.y &&
+				v1.z == v2.z;
+		}
+		bool operator < (const Vec3& rhs) const {
+			return std::tie(x, y, z) < std::tie(rhs.x, rhs.y, rhs.z);
+		}
+		/**
+		* 	Changes vector values to those given
+		*	\param float x \param float y \param float z
+		**/
+		void Set(float _x, float _y, float _z);
+
+		/**
+		* 	Return x value
+		*	\return float x
+		**/
+		float X() { return x; }
+
+		/**
+		* 	Return y value
+		*	\return float y
+		**/
+		float Y() { return y; }
+
+		/**
+		* 	Return z value
+		*	\return float z
+		**/
+		float Z() { return z; }
+	};
+
+	/**
+	 * Three component vector class
+	**/
+	class Vec4
+	{
+	public:
+		float x;
+		float y;
+		float z;
+		float w;
+		/// Init Vec3 to 0,0,0,0
+		Vec4();
+		/// Init Vec3 to given vec3 values
+		Vec4(const Vec4& vector);
+
+		/**
+		* 	Init Vec4 to given float for all values
+		*	\param value
+		**/
+		Vec4(float value);
+		/**
+		* 	Init Vec3 to given float
+		*	\param float x \param float y
+		**/
+		Vec4(float _x, float _y, float _z, float _w);
+
+		~Vec4() {};
+
+		/**
+		* 	Changes vector values to those given
+		*	\param float x \param float y \param float z \param float w
+		**/
+		void Set(float _x, float _y, float _z, float _w);
+
+		/**
+		* 	Return x value
+		*	\return float x
+		**/
+		float X() { return x; }
+
+		/**
+		* 	Return y value
+		*	\return float y
+		**/
+		float Y() { return y; }
+
+		/**
+		* 	Return z value
+		*	\return float z
+		**/
+		float Z() { return z; }
+
+		/**
+		* 	Return W value
+		*	\return float w
+		**/
+		float W() { return w; }
+	};
+
+
+	class Vector
+	{
+
+	public:
+		static float DotProduct(Vec2& v1, Vec2& v2);
+		static float DotProduct(Vec3& v1, Vec3& v2);
+		static float DotProduct(Vec4& v1, Vec4& v2);
+
+		static Vec3 CrossProduct(Vec3& v1, Vec3& v2);
+
+		//Basic Vec2 methods
+
+		static inline Vec2 Add(Vec2& v1, Vec2& v2) { return Vec2(v1.X() + v2.X(), v1.Y() + v2.Y()); }
+		static inline Vec2 Sub(Vec2& v1, Vec2& v2) { return Vec2(v1.X() - v2.X(), v1.Y() - v2.Y()); }
+		static inline Vec2 Mul(Vec2& v1, Vec2& v2) { return Vec2(v1.X() * v2.X(), v1.Y() * v2.Y()); }
+		static inline Vec2 Div(Vec2& v1, Vec2& v2) { return Vec2(v1.X() / v2.X(), v1.Y() / v2.Y()); }
+
+		//Basic Vec3 methods
+
+		static inline Vec3 Add(Vec3& v1, Vec3& v2) { return Vec3(v1.X() + v2.X(), v1.Y() + v2.Y(), v1.Z() + v2.Z()); }
+		static inline Vec3 Sub(Vec3& v1, Vec3& v2) { return Vec3(v1.X() - v2.X(), v1.Y() - v2.Y(), v1.Z() - v2.Z()); }
+		static inline Vec3 Mul(Vec3& v1, Vec3& v2) { return Vec3(v1.X() * v2.X(), v1.Y() * v2.Y(), v1.Z() * v2.Z()); }
+		static inline Vec3 Div(Vec3& v1, Vec3& v2) { return Vec3(v1.X() / v2.X(), v1.Y() / v2.Y(), v1.Z() / v2.Z()); }
+		static inline Vec3 Mult(Vec3& v1, float n) { return Vec3(v1.X() * n, v1.Y() * n, v1.Z() * n); }
+
+		//Basic Vec4 methods
+		static inline Vec4 Add(Vec4& v1, Vec4& v2) { return Vec4(v1.X() + v2.X(), v1.Y() + v2.Y(), v1.Z() + v2.Z(), v1.W() + v2.W()); }
+		static inline Vec4 Sub(Vec4& v1, Vec4& v2) { return Vec4(v1.X() - v2.X(), v1.Y() - v2.Y(), v1.Z() - v2.Z(), v1.W() - v2.W()); }
+		static inline Vec4 Mul(Vec4& v1, Vec4& v2) { return Vec4(v1.X() * v2.X(), v1.Y() * v2.Y(), v1.Z() * v2.Z(), v1.W() * v2.W()); }
+		static inline Vec4 Div(Vec4& v1, Vec4& v2) { return Vec4(v1.X() / v2.X(), v1.Y() / v2.Y(), v1.Z() / v2.Z(), v1.W() / v2.W()); }
+
+		// SqaureLength
+		static float SqaureLength(Vec2& v);
+		static float SqaureLength(Vec3& v);
+		static float SqaureLength(Vec4& v);
+
+		// Magnitude
+		static float Magnitude(Vec2& v);
+		static float Magnitude(Vec3& v);
+		static float Magnitude(Vec4& v);
+
+		static Vec2 Normilise(Vec2& v);
+		static Vec3 Normilise(Vec3& v);
+		static Vec4 Normilise(Vec4& v);
+	};
+}
+App/Include/Math/Vectorbase.H
+#pragma once
+#include "BMath.h"
+
+namespace Blocky {
+	class VectorBase
+	{
+
+	public:
+		float DotProduct(Vec2& v1, Vec2& v2);
+		float DotProduct(Vec3& v1, Vec3& v2);
+		float DotProduct(Vec4& v1, Vec4& v2);
+
+		Vec3 CrossProduct(Vec3& v1, Vec3& v2);
+
+		//Basic Vec2 methods
+
+		inline Vec2 Add(Vec2& v1, Vec2& v2) { return Vec2(v1.X() + v2.X(), v1.Y() + v2.Y()); }
+		inline Vec2 Sub(Vec2& v1, Vec2& v2) { return Vec2(v1.X() - v2.X(), v1.Y() - v2.Y()); }
+		inline Vec2 Mul(Vec2& v1, Vec2& v2) { return Vec2(v1.X() * v2.X(), v1.Y() * v2.Y()); }
+		inline Vec2 Div(Vec2& v1, Vec2& v2) { return Vec2(v1.X() / v2.X(), v1.Y() / v2.Y()); }
+
+		//Basic Vec3 methods
+
+		inline Vec3 Add(Vec3& v1, Vec3& v2) { return Vec3(v1.X() + v2.X(), v1.Y() + v2.Y(), v1.Z() + v2.Z()); }
+		inline Vec3 Sub(Vec3& v1, Vec3& v2) { return Vec3(v1.X() - v2.X(), v1.Y() - v2.Y(), v1.Z() - v2.Z()); }
+		inline Vec3 Mul(Vec3& v1, Vec3& v2) { return Vec3(v1.X() * v2.X(), v1.Y() * v2.Y(), v1.Z() * v2.Z()); }
+		inline Vec3 Div(Vec3& v1, Vec3& v2) { return Vec3(v1.X() / v2.X(), v1.Y() / v2.Y(), v1.Z() / v2.Z()); }
+		inline Vec3 Mult(Vec3& v1, float n) { return Vec3(v1.X() * n, v1.Y() * n, v1.Z() * n); }
+
+		//Basic Vec4 methods
+		inline Vec4 Add(Vec4& v1, Vec4& v2) { return Vec4(v1.X() + v2.X(), v1.Y() + v2.Y(), v1.Z() + v2.Z(), v1.W() + v2.W()); }
+		inline Vec4 Sub(Vec4& v1, Vec4& v2) { return Vec4(v1.X() - v2.X(), v1.Y() - v2.Y(), v1.Z() - v2.Z(), v1.W() - v2.W()); }
+		inline Vec4 Mul(Vec4& v1, Vec4& v2) { return Vec4(v1.X() * v2.X(), v1.Y() * v2.Y(), v1.Z() * v2.Z(), v1.W() * v2.W()); }
+		inline Vec4 Div(Vec4& v1, Vec4& v2) { return Vec4(v1.X() / v2.X(), v1.Y() / v2.Y(), v1.Z() / v2.Z(), v1.W() / v2.W()); }
+
+		// SqaureLength
+		float SqaureLength(Vec2& v);
+		float SqaureLength(Vec3& v);
+		float SqaureLength(Vec4& v);
+
+		// Magnitude
+		float Magnitude(Vec2& v);
+		float Magnitude(Vec3& v);
+		float Magnitude(Vec4& v);
+
+		Vec2 Normilise(Vec2& v);
+		Vec3 Normilise(Vec3& v);
+		Vec4 Normilise(Vec4& v);
+	};
+}
+App/Include/Math/Graphics.H
+#pragma once
+#include "BMath.h"
+#include <array>
+App/Include/Math/Bmath.H
+#pragma once
+
+#include "vector.h"
+#include "matrix.h"
+#include "math.h"
+#include "Graphics.h"
+
+
+#define DEG_TO_RAD(DEG) (DEG * RADCONST)
+
+namespace Blocky {
+	const double PI = 3.141592653589793238462643383279;
+	const double TWOPI = 2 * PI;
+	const double HALFPI = PI / 2;
+	const double QUARTARPI = PI / 4;
+
+	const double RADCONST = PI / 180;
+
+	struct Vertex
+	{
+		Vec3 posistion;
+		Vec3 colour;
+		Vec3 normal;
+		Vec2 uv;
+	};
+}
+
+App/Include/Math/Matrix.H
+#pragma once
+#include "math/vector.h"
+
+namespace Blocky {
+
+
+    class Matrix4x4
+    {
+    public:
+        float v[16];
+
+        Matrix4x4();
+        Matrix4x4(float vals[16]);
+        Matrix4x4(float value);
+
+        void StripTranslation();
+
+        float GetValue2D(int row, int col);
+        void Display();
+    };
+
+    class Matrix2x2
+    {
+    public:
+        float v[4];
+
+        Matrix2x2();
+        Matrix2x2(float f1, float f2, float f3, float f4);
+        Matrix2x2(float vals[4]);
+        Matrix2x2(Matrix2x2& m);
+        Matrix2x2(float value);
+
+        float GetValue2D(int row, int col);
+        void Display();
+    };
+
+    class Matrix
+    {
+    public:
+        //Matrix(const Matrix4x4& obj);
+
+        static Matrix4x4 Translate(Vec3& vec);
+        static Matrix4x4 Translate(Vec4& vec);
+
+        static Matrix4x4 Translate(Matrix4x4& mat, Vec3& vec);
+        static Matrix4x4 Translate(Matrix4x4& mat, Vec4& vec);
+
+        static Matrix4x4 Transpose(Matrix4x4& mat);
+
+        static Matrix4x4 Mult(Matrix4x4& l, Matrix4x4& r);
+        static Matrix4x4 Mult(const Matrix4x4& l, const Matrix4x4& r);
+        static Matrix4x4 Mult(const Matrix4x4& l, Matrix4x4& r);
+        static Matrix4x4 Mult(Matrix4x4& l, const Matrix4x4& r);
+
+        static Matrix4x4 Scale(Matrix4x4& mat, Vec3 scale);
+        static Matrix4x4 Scale(Vec3 scale);
+        static Matrix4x4 Rotate(float angle, Vec3& vec);
+        static Matrix4x4 Rotate(Matrix4x4& mat, float angle, Vec3 vec);
+        static Vec4      Transform(Matrix4x4& mat, Vec4& vec);
+        static Matrix4x4 LookAt(Vec3 Eye, Vec3 Center, Vec3 Up);
+        static Matrix4x4 Perspective(float fovy, float aspect, float near, float far);
+        static Matrix4x4 Orthographic(float left, float right, float bottom, float top);
+
+        static Matrix2x2 Mult(Matrix2x2& l, Matrix2x2& r);
+    };
+}
+App/Include/Graphics/Indexbuffer.H
+#pragma once
+#include <cstdint>
+#include <algorithm>
+
+namespace Blocky {
+
+	class IndexBuffer
+	{
+	private:
+		uint32_t id;
+		uint32_t count;
+	public:
+		IndexBuffer() : id(0) {}
+		~IndexBuffer();
+
+		void Create(uint32_t* data, uint32_t m_Count);
+
+		IndexBuffer(IndexBuffer&& rhs) noexcept
+		{
+			std::swap(id, rhs.id);
+			std::swap(count, rhs.count);
+		}
+
+		IndexBuffer& operator=(IndexBuffer&& rhs) noexcept {
+			std::swap(id, rhs.id);
+			std::swap(count, rhs.count);
+			return *this;
+		}
+		IndexBuffer(const IndexBuffer&) = delete;
+		IndexBuffer& operator=(const IndexBuffer&) = delete;
+
+		void Bind();
+		void UnBind();
+
+		inline uint32_t GetCount() { return count; }
+	};
+}
+App/Include/Graphics/Vertexarray.H
+#pragma once
+
+#include "VertexBuffer.h"
+#include "VBLayout.h"
+#include "glad/glad.h"
+#include "logger.h"
+
+namespace Blocky {
+	class VertexArray
+	{
+	private:
+		uint32_t vao;
+	public:
+		VertexArray();
+		~VertexArray();
+
+		VertexArray(VertexArray&& rhs) noexcept
+		{
+			std::swap(vao, rhs.vao);
+		}
+		VertexArray& operator=(VertexArray&& rhs) noexcept {
+			std::swap(vao, rhs.vao);
+			return *this;
+		}
+		VertexArray(const VertexArray&) = delete;
+		VertexArray& operator=(const VertexArray&) = delete;
+
+		void Create();
+
+		void UnBind();
+		void Bind();
+		void AddBuffer(VertexBuffer& vb, VBLayout& layout);
+
+		uint32_t GetId() { return vao; }
+	};
+}
+App/Include/Graphics/Shader.H
+#pragma once
+#include <cstdint>
+#include <string>
+#include <unordered_map>
+#include "math/BMath.h"
+
+namespace Blocky {
+	class Shader
+	{
+	private:
+		uint32_t id = 0;
+		const char* vertexPath = "";
+		const char* fragmentPath = "";
+
+		std::unordered_map<const char*, int> uniformLocationCache;
+
+		uint32_t GetUniformLocation(const char* name);
+		uint32_t CompileShader(const std::string& source, uint32_t type);
+		std::string ReadShader(const char* path);
+		uint32_t CreateShader(std::string& vertexShader, std::string& fragmentShader);
+
+	public:
+		Shader() : id(0) {}
+		~Shader();
+
+		Shader(const Shader&) = delete;
+		Shader& operator=(const Shader&) = delete;
+
+		Shader(Shader&& rhs) noexcept
+		{
+			std::swap(id, rhs.id);
+		}
+
+		Shader& operator=(Shader&& rhs) noexcept {
+			std::swap(id, rhs.id);
+			return *this;
+		}
+
+		void Create(const char* vPath, const char* fPath);
+
+		void Bind();
+		void UnBind();
+
+		uint32_t GetId() { return id; }
+		// Set uniforms
+		// sends data to GPU
+		void SetUniform1f(const char* name, float value);
+		void SetUniform1i(const char* name, int value);
+		void SetUniform3f(const char* name, float f0, float f1, float f2);
+		void SetUniform4f(const char* name, float f0, float f1, float f2, float f3);
+		void SetMatrix4(const char* name, Matrix4x4 mat);
+	};
+};
+App/Include/Graphics/Renderer.H
+#pragma once
+
+#include "glad/glad.h"
+#include "VertexArray.h"
+#include "shader.h"
+#include "IndexBuffer.h"
+#include <core/window.h>
+
+namespace Blocky {
+	class Renderer
+	{
+	private:
+
+	public:
+		Renderer() {};
+		void Clear(Vec3& skyColour);
+		void DrawElements(VertexArray& vertex, IndexBuffer& index, Shader& shader);
+		void DrawArray(VertexArray& vertex, Shader& shader, uint32_t count);
+		void NewFrame(Window* win);
+	};
+}
+App/Include/Graphics/Texture.H
+#pragma once
+
+#include "renderer.h"
+#include "glad/glad.h"
+#include "UI/Font.h"
+
+namespace Blocky {
+	class Texture
+	{
+	private:
+		uint32_t id;
+		const char* path;
+
+		unsigned char* imageData;
+		int width;
+		int height;
+		int PixelDataSize;
+		GLenum textureType;
+
+	public:
+		Texture() = default;
+		~Texture();
+
+		Texture& operator=(Texture&& rhs) noexcept {
+			std::swap(id, rhs.id);
+			std::swap(textureType, rhs.textureType);
+			return *this;
+		}
+		Texture(Texture&& rhs) noexcept
+		{
+			std::swap(id, rhs.id);
+			std::swap(textureType, rhs.textureType);
+		}
+
+		Texture(const Texture&) = delete;
+		Texture& operator=(const Texture&) = delete;
+
+		void Create(const char* filepath, GLenum type);
+		void GlyphCreation(FT_Face face);
+
+		void Bind(uint32_t textureSlot = 0);
+		void UnBind();
+
+
+		inline uint32_t GetId() { return  id; }
+		inline int GetWidth() { return  width; }
+		inline int GetHeight() { return  height; }
+		inline int GetPDS() { return  PixelDataSize; }
+	};
+}
+App/Include/Graphics/Vblayout.H
+#pragma once
+#include <vector>
+
+namespace Blocky {
+	struct VBElement
+	{
+		uint32_t type;
+		uint32_t count;
+		unsigned char normilized;
+	};
+
+	class VBLayout
+	{
+	public:
+		VBLayout();
+		~VBLayout();
+
+		void Push(uint32_t type, uint32_t count, bool normalized);
+
+
+		static uint32_t GetSize(uint32_t type);
+		inline std::vector<VBElement>& GetElements() { return elements; }
+		inline uint32_t GetStrite() { return stride; }
+
+	private:
+		std::vector<VBElement> elements;
+		uint32_t stride;
+	};
+}
+App/Include/Graphics/Spritesheet.H
+#pragma once
+#include "renderer.h"
+#include "Texture.h"
+#include <memory>
+#include "math/BMath.h"
+
+namespace Blocky {
+	class SpriteSheet
+
+	{
+	public:
+		SpriteSheet(std::shared_ptr<Texture> texture, Vec2 min, Vec2 max);
+
+		std::shared_ptr<Texture> GetTexture() { return texture; }
+		float* GetTextureCoords() { return TexCoords; }
+
+
+		static SpriteSheet CreateFromCoords(std::shared_ptr<Texture> texture, Vec2 Coords, Vec2 spriteSize);
+	private:
+		std::shared_ptr<Texture> texture;
+
+		float TexCoords[8];
+	};
+}
+App/Include/Graphics/Vertexbuffer.H
+#pragma once
+#include <cstdint>
+#include <algorithm>
+#include "glad/glad.h"
+#include "logger.h"
+
+namespace Blocky {
+
+	class VertexBuffer
+	{
+	private:
+		uint32_t id;
+	public:
+		VertexBuffer() = default;
+		void Create(const void* data, uint32_t size);
+		void CreateEmpty(uint32_t size, GLenum type);
+		void AddedData(const void* data, uint32_t size);
+		~VertexBuffer();
+
+		VertexBuffer(const VertexBuffer&) = delete;
+		VertexBuffer& operator=(const VertexBuffer&) = delete;
+
+		VertexBuffer& operator=(VertexBuffer&& rhs) noexcept {
+			std::swap(id, rhs.id);
+			return *this;
+		}
+		VertexBuffer(VertexBuffer&& rhs) noexcept
+		{
+			std::swap(id, rhs.id);
+		}
+
+
+		void Bind();
+		void UnBind();
+	};
+}
+App/Include/Graphics/Primitives/Rect.H
+#pragma once
+#include <graphics/shader.h>
+#include <graphics/VBLayout.h>
+#include <graphics/VertexBuffer.h>
+#include <graphics/VertexArray.h>
+#include <graphics/IndexBuffer.h>
+#include <camera.h>
+#include <graphics/renderer.h>
+#include <graphics/Texture.h>
+
+namespace Blocky {
+	class Rect : Renderer {
+	public:
+		void RCreate(Camera& camera, Vec2 left, Vec2 right, Vec3 colour);
+		void RCreateTextured(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, std::string fileName);
+		void RDraw();
+		void RChangeColour(Vec3 colour);
+		bool RIntersect(Vec2 pos);
+
+		inline Vec2 RGetTop() { return rightTop; }
+		inline Vec2 RGetBottom() { return leftBottom; }
+		inline uint32_t RGetVaoId() { return va.GetId(); }
+
+
+		Rect() {};
+
+
+	protected:
+		VertexArray va;
+		VertexBuffer vb;
+		IndexBuffer ib;
+		VBLayout layout{};
+		Shader shader;
+		Texture texture;
+
+		Vec2 leftBottom;
+		Vec2 rightTop;
+
+		uint32_t indices[6] = { 0,1,2,2,3,0 };
+	};
+}
+App/Src/Clock.Cpp
+#include "clock.h"
+#include "logger.h"
+
+namespace Blocky {
+    void Clock::Start()
+    {
+        // logs that the clock has started
+        Logger::output(KEYINFO, "Clock started");
+        // sets the start time 
+        startTime = std::chrono::system_clock::now();
+        frameStart = std::chrono::high_resolution_clock::now();
+    }
+
+    void Clock::NewFrame()
+    {
+        // increase the frame counter
+        frameCount++;
+        // gets the current time
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        // Gets the differance in time between the current time and frame start time
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - frameStart).count();
+        // Gets the current time
+        frameStart = std::chrono::high_resolution_clock::now();
+
+        // if 60 frames have passed update the FPS variable
+        if (frameCount % 60 == 0)
+            FPS = (int)(1.0f / deltaTime);
+#if SHOWFPS
+        Logger::output(INFO, "FPS: %d", FPS);
+#endif
+    }
+}
+App/Src/Logger.Cpp
+#include "logger.h"
+#include <string>
+#include <iostream>
+#include <filesystem>
+#include "assert.h"
+#include <windows.h>   
+
+// Creates sigleton of the logger
+Logger& Logger::get_instance()
+{
+    static Logger logger;
+    return logger;
+}
+
+void Logger::init(const char* filePath)
+{
+    // creates singleton
+    Logger& logger_instance = get_instance();
+    // Sets up the file path for the log file
+    logger_instance.filepath = filePath;
+    // Creates log file
+    std::string filename(filePath);
+    // opens the logging file
+    logger_instance.logFile.open(filename, std::ios_base::out);
+
+    // Checks to see if the log file is opened successfully
+    if(logger_instance.logFile.is_open() == false)
+        logger_instance.output(FATAL, "Error opening '%s'",filePath);
+    else
+        logger_instance.output(INFO, "Opened logging file '%s'",filePath);
+}
+
+void Logger::output(error_levels level, const char* msg, ...)
+{
+    // if the program is in realse do not display info errors for performance reasons
+    if(RELEASE && level == INFO)
+        return;
+    // Gets the loggers handle
+    Logger& logger_instance = get_instance();
+    // Gets the current time
+    time_t curtime;
+    time(&curtime);
+
+    // array for colours and the type of errors
+    static const int colour[6] = {RED, GREEN, YELLOW, GREY, DARKBLUE ,BLUE};
+    // Spacing for nice looking logging files
+    static const char* type[6] = {"[FATAL]       ", "[CRITICAL]    ", "[WARNING]     ","[VALIDATION]  ", "[KEY INFO]    ","[INFO]        "};
+
+    // the buffer for the characters in c style
+    char buffer[65536];
+
+    // creates arg list which can have many values put into it
+    va_list args;
+
+    // adds msg to buffer | will have an overflow if the msg is more than given char size
+    // Do not allow the user to impact log messages unless they are checked for size
+    va_start(args, msg);
+    int check = vsnprintf (buffer, 4096 , msg, args);
+    // Makes sure the message is within the range
+    assert(check != 0 && check < 4096);
+
+    // Gets the console handle to allow for colour access
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    // Sets the colours in the colours
+    SetConsoleTextAttribute(hConsole, (int)colour[level]);
+
+    // writes to the console
+    std::cout << type[level] << "  :  " << buffer << std::endl;
+    // Writes to a log file
+    logger_instance.logFile << type[level] << " : " << buffer << "\n";
+    // stops the reading
+    va_end(args);   
+    // sets the text colour to white
+    SetConsoleTextAttribute(hConsole, WHITE);
+
+    // if it is a fatal error stop the program with an error message
+    if (level == FATAL) {
+        exit(-1);
+    }
+}
+
+void Logger::shutdown()
+{
+    // Get the logger handle
+    Logger& logger_instance = get_instance();
+    // Display that the logger is closing
+    logger_instance.output(INFO, "Closing log file: %s", logger_instance.filepath);
+    // Close the log file
+    logger_instance.logFile.close();
+}
+
+
+App/Src/Main.Cpp
+#include <iostream>
+
+#include "app.h"
+#include "logger.h"
+
+int main()
+{
+    // Starts the logger
+    Logger::init("log.txt");
+    // Displays by the logger that the program has started
+    Logger::output(KEYINFO, "Program Start");
+    
+    // Creates the application
+    Blocky::App app;
+    // Start the app
+    app.Start();
+}
+App/Src/Camera.Cpp
+#include "camera.h"
+#include "logger.h"
+#include "defines.h"
+#include <iostream>
+
+namespace Blocky {
+    Camera::Camera(Window* win, Clock* _clock, int w_Width, int w_Height)
+        : window(win), clock(_clock), width(w_Width), height(w_Height)
+    {
+        // writes to the logger that the camera has started
+        Logger::output(KEYINFO, "Camera Init");
+        // Sets the position of the camera
+        CameraPos = Vec3(startX, WATERLEVEL + 30.0f, startZ);
+        lastPos = CameraPos;
+        // sets the camera target to the center of the screen
+        cameraTarget = Vec3(0.0f, 0.0f, 0.0f);
+        // sets up collisions
+        UpdateAABB();
+        // sets where the camera front is
+        CameraFront = Vec3(0.0f, 0.0f, -1.0f);
+        // Sets the cameras up direction
+        Up = Vec3(0.0f, 1.0f, 0.0f);
+        // Sets the cameras up direction for later use
+        CameraUp = Vec3(0.0f, 1.0f, 0.0f);
+
+        // Creates the projection matrix which will be used for all 3d things
+        Projection = Matrix::Perspective(DEG_TO_RAD(fov), (float)width / (float)height, 0.001f, 1000.0f);
+        // Creates the orhograpthic matrix which will be used for all 2d things
+        textProjection = Matrix::Orthographic(0.0f, (float)width, 0.0f, (float)height);
+        // Sets up the model matrix
+        Model = Matrix4x4();
+        // Sets up the view matrix
+        View = Matrix::LookAt(CameraPos, CameraPos + CameraFront, CameraUp);
+    }
+
+    Matrix4x4 Camera::Look()
+    {
+        // Calulates which direction the player is looking
+        Vec3 forward = CameraPos + CameraFront;
+        // Returns where the player is looking
+        return Matrix::LookAt(CameraPos, forward, CameraUp);
+    }
+
+    void Camera::Update(float dt)
+    {
+        lastPos = CameraPos;
+        // moves the player
+        Move(dt);
+        // Updates the view matrix
+        View = Look();
+    }
+
+    void Camera::UpdateAABB()
+    {
+        // sets the min to be a vec3 where all values are 0.3 less than the posistion
+        Min = CameraPos - 0.3;
+        // sets the min to be a vec3 where all values are 0.3 more than the posistion
+        Max = CameraPos + 0.3;
+        // updates the colision box
+        aabb.Update(Min, Max);
+    }
+
+    void Camera::Move(float deltaTime)
+    {
+        // makes sets the camera speed which has the frame rate acounted for
+        float cameraSpeed = 20.0f * deltaTime;
+        tempPos = CameraPos;
+
+        if (Input::isKeyDown('W')) {
+            // sets the movement forward
+            Vec3 temp = CameraFront * cameraSpeed;
+            // updates the position
+            CameraPos = CameraPos + temp;
+        }
+        if (Input::isKeyDown('S')) {
+            // sets the movement forward
+            Vec3 temp = CameraFront * cameraSpeed;
+            // updates the position
+
+            CameraPos = CameraPos - temp;
+        }
+        if (Input::isKeyDown('A')) {
+            // Gets the vector which is perpendicular to the front and and the vertical
+            Vec3 temp = Vector::CrossProduct(CameraFront, CameraUp);
+            // normilise the direction vector
+            temp = Vector::Normilise(temp);
+            // updates the position
+            CameraPos = CameraPos - (temp * cameraSpeed);
+        }
+        if (Input::isKeyDown('D')) {
+            // Gets the vector which is perpendicular to the front and and the vertical
+            Vec3 temp = Vector::CrossProduct(CameraFront, CameraUp);
+            // normilise the direction vector
+            temp = Vector::Normilise(temp);
+            // updates the position
+            CameraPos = CameraPos + (temp * cameraSpeed);
+        }
+        // check if movement was valid
+        UpdateAABB();
+
+        // Gets the direction in which the mouse has moved on the x axis
+        float xoffset = Input::mouseX - lastX;
+        // Gets the direction in which the mouse has moved on the y axis
+        float yoffset = lastY - Input::mouseY;
+
+        // Sets the last directions
+        lastX = Input::mouseX;
+        lastY = Input::mouseY;
+
+        xoffset *= sensitivity;
+        yoffset *= sensitivity;
+
+        // adds to horizontal based on the direction of the mouse
+        yaw += xoffset * sensitivity;
+        // adds to vertical based on the direction of the mouse
+        pitch += yoffset * sensitivity;
+
+        // limits the pitch to be in the rand -89 to 89
+        if (pitch > 89.0f)
+            pitch = 89.0f;
+        if (pitch < -89.0f)
+            pitch = -89.0f;
+
+        // Calulates the front where the mouse is based on math
+        Vec3 Front = Vec3(
+            cos(DEG_TO_RAD(yaw)) * cos(DEG_TO_RAD(pitch)),
+            sin(DEG_TO_RAD(pitch)),
+            sin(DEG_TO_RAD(yaw)) * cos(DEG_TO_RAD(pitch))
+        );
+        // sets the front as a normlised vector giving the correct direcition
+        CameraFront = Vector::Normilise(Front);
+
+        // code bellow increases accuracy as distance from 0,0,0 increases
+        Vec3 temp = Vector::CrossProduct(Front, Up);
+        CameraRight = Vector::Normilise(temp);
+        temp = Vector::CrossProduct(CameraRight, Front);
+        Up = Vector::Normilise(temp);
+    }
+}
+App/Src/App.Cpp
+#include "app.h"
+#include <thread>
+#include <UI/Font.h>
+#include <UI/Button.h>
+#include <functional>
+#include <iostream>
+#include "core/GameState.h"
+
+namespace Blocky {
+	// sets up the callback for openGL errors
+	void GLAPIENTRY errorMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+		const GLchar* message, const void* userParam)
+	{
+		// if the message is an error display error to the console
+		if (type == GL_DEBUG_TYPE_ERROR)
+			Logger::output(VALIDATION, "OpenGL error");
+	}
+
+	void App::Start()
+	{
+		// sets up the window and the graphics handle
+		SetUp();
+
+		// Creates the camera with the size of the screen
+	 	Camera camera(window, &clock, width, height);
+
+		// sets up the ui handler
+		uiManager.Init(camera);
+	
+		// sets up the menu ui
+		InitMenuUI(camera);
+		Logger::output(KEYINFO, "-----------Main start loop------------");
+
+		// main game loop
+		while (!glfwWindowShouldClose(window->window))
+		{
+			// sets up logic for new frames
+			clock.NewFrame();
+			Clear(skyColour);
+
+			// updates all the UI elements
+			uiManager.Update();
+			// checks to see what has changed in the global state
+			CheckGamestate(camera);
+
+			// Draws all the UI
+			uiManager.RendererUI();
+
+			// Checks if the esc key is down or the game is set to quit
+			if (Input::isKeyDown(GLFW_KEY_ESCAPE) || GameState::quit == true) {
+				window->Close();
+			}
+
+			// Checks if the C key is down
+			if (Input::isKeyDown(GLFW_KEY_C)) {
+				// removes all the text from the terminal
+				system("cls");
+			}
+			// Sets no key to be active
+			Input::currentKey = NULL;
+			
+			// clears display
+			NewFrame(window);
+		}
+		Logger::output(KEYINFO, "-------------Main loop end------------");
+
+		Logger::output(INFO, "Closing program gracefully");
+		// clears window and then deletes
+		Window::FreeWindow(window);
+		// stops the program
+		glfwTerminate();
+	}
+
+	/// <summary>
+	/// Draws every chunk in the world
+	///
+	/// </summary>
+	/// <param name="cam"></param>
+	void App::DrawWorld(Camera& cam)
+	{
+		world.Draw(cam, clock);
+	}
+
+	void App::SetUp()
+	{
+		// sets up the window manager
+		glfwInit();
+		// Creates a new window handle with given parameters
+		window = Window::CreateWindow(width, height, title, GameState::fullScreen);
+
+		// if the window failed to create
+		if (window == nullptr) {
+			Logger::output(FATAL, "Failed to create window");
+		}
+		// if the window created well
+		else {
+			Logger::output(KEYINFO, "Create window");
+		}
+		// sets up input callbacks to handle when a key is pressed
+		window->InstallMainCallback();
+
+		// sets up openGL bindings
+		// if it fails write that it failed
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+			Logger::output(FATAL, "failed to init GLAD");
+		}
+
+		else {
+			Logger::output(KEYINFO, "Glad initilzed");
+		}
+
+		// enables callbacks which handles what to do when an error is found in the graphics side
+		glEnable(GL_DEBUG_OUTPUT);
+		glDebugMessageCallback(errorMessageCallback, 0);
+		// sets up the viewport to the size of the screen
+		glViewport(0, 0, width, height);
+
+		// Enables blending which is the art of allowing Transparency
+		glEnable(GL_BLEND);
+		// sets the Transparency function to the defult
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		// sets up the depth test which makes the gpu check how far every pixel is from the camera's eye
+		glEnable(GL_DEPTH_TEST);
+
+		// starts the clock
+		clock.Start();
+	}
+
+
+	/// <summary>
+	/// Method which handles the checking of the global gamestate
+	/// redraws the FPS every time it is ran
+	/// checks if buttons have been click or are hoverd over
+	/// handles UI changes such as changing scence
+	/// </summary>
+	/// <param name="camera"></param>
+	void App::CheckGamestate(Camera& camera)
+	{
+		// resets the sky colour
+		skyColour = defultSkyColour;
+
+		// Sets up the fps text
+		std::string text = std::string("FPS : ") + std::to_string(clock.GetFPS());
+		uiManager.AddText(text, 10.0f, height - 70.0f, 0.75f, Vec3(0), true);
+
+		// checks if the mouse is currently over any buttons
+		uiManager.CheckHover({ Input::mouseX, Input::mouseY });
+
+		// checks to see if the user has changed the sensitivty in game
+		if (GameState::ChangedSens) {
+			camera.ChangeSens(GameState::mouseSens);
+			GameState::ChangedSens = false;
+		}
+		// Checks to see if the user is trying to go to the menu
+		if (GameState::menu && GameState::update) {
+			uiManager.ClearUI();
+			InitMenuUI(camera);
+		}
+		// checks to see if the user is trying to go to the settings menu
+		if (GameState::settings && GameState::update) {
+			uiManager.ClearUI();
+			InitSettings(camera);
+		}
+		// Checks to see if the user is going to the pregame screen
+		if (GameState::preGame && GameState::update) {
+			uiManager.ClearUI();
+			InitPreGame(camera);
+		}
+		// Checks to see if the player is trying to start the game and if the world has been loaded before
+		if (GameState::game && GameState::loadWorld && GameState::firstLoad) {
+			// Generates the world as set by the players requirments
+			world.CreateWorld(camera);
+			// Draws the world
+			DrawWorld(camera);
+			// sets the world to be loaded
+			GameState::firstLoad = false;
+			// clears the UI
+			uiManager.ClearUI();
+			// sets up in game UI
+			InitInGameUI(camera);
+		}
+		// if the user is in the game and is not the first load
+		if (GameState::game) {
+			Vec3 pos = camera.GetPosition();
+			text = std::string("POS: ") + std::to_string(pos.x) + ", " + std::to_string(pos.y) +  ", " + std::to_string(pos.z);
+			uiManager.AddText(text, 10.0f, height - 140.0f, 0.5f, Vec3(0), true);
+
+			// if the user holds down tab their mouse should be freed
+			if (Input::isKeyDown(GLFW_KEY_TAB)) {
+				glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			}
+			else {
+				glfwSetInputMode(window->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+				world.update(camera, clock);
+			}
+			// gets the rotation of the sun
+			float roatation = world.GetRotation();
+			// updates the colour of the sky
+			ChangeColour(roatation);
+			// Draws the world
+			DrawWorld(camera);
+		}
+		// sets the update flag to false
+		GameState::update = false;
+	}
+
+	void App::ChangeColour(float roation)
+	{
+		// Gets the sun lighting posistion using a translated cos graph
+		roation = (cos(roation) + 2.5) / 4;
+		// gets the percetage change of blue which is the highest colour value
+		float percentageChange = 1 / skyColour.z;
+		// gets the change in green
+		float deltaGreen = skyColour.y * percentageChange * roation;
+		// Gets the change in red
+		float deltaRed = skyColour.x * percentageChange * roation;
+		// sets the colour to the new colour correct sky colour
+		skyColour = Vec3(deltaRed, deltaGreen, skyColour.z * roation);
+	}
+
+	void App::InitMenuUI(Camera& cam)
+	{
+		// Adds the title text
+		uiManager.AddText("Blocky", height - 50.0f, 1.0f, Vec3(0.7, 0.1, 0.1), false);
+		// Adds the play button
+		uiManager.AddButton(cam, "Play Game", 800, 1.0f, Vec3(0), false, { -300, 550 }, { 300, 700 }, &GameState::PreGame);
+		// Adds the settings button
+		uiManager.AddButton(cam, "Settings", 800, 1.0f, Vec3(0), false, { -300, 350 }, { 300, 500 }, &GameState::SettingsMenu);
+		// Adds the close button
+		uiManager.AddButton(cam, "Close Game", 800, 1.0f, Vec3(0), false, { -300, 150 }, { 300, 300 }, &GameState::Quit);
+	}
+
+	void App::InitPreGame(Camera& cam)
+	{
+		// Adds the title text
+		uiManager.AddText("Blocky", height - 50.0f, 1.0f, Vec3(0.7, 0.1, 0.1), false);
+		// Adds the input box which lets the user enter values
+		uiManager.AddInputBox(cam, { (width / 2) - 300.0f,600 }, { (width / 2) + 300.0f,700 }, { 0.6,0.6,0.6 }, { 0.4,0.4,0.4 });
+		// Adds the button which reads from the input box and sets the world seed
+		uiManager.AddButton(cam, "Set seed", 800, 1.0f, Vec3(0), false, { -200, 450 }, { 200, 550 }, &GameState::SetSeed);
+		// Adds the button which reads from the input box and sets the world size
+		uiManager.AddButton(cam, "Set world size", 800, 1.0f, Vec3(0), false, { -200, 340 }, { 200, 440 }, &GameState::UpdateWorldSize);
+		// Adds the toggle button allowing the user to make the world infite or finite
+		uiManager.AddButton(cam, "Infinte", 800, 1.0f, Vec3(0), false, { -150, 250 }, { 150, 330 }, &GameState::SetInfinte);
+		// Adds the start button which will create the world
+		uiManager.AddButton(cam, "Start", 800, 1.0f, Vec3(0), false, { -300, 750 }, { 300, 900 }, &GameState::Game);
+		// Adds the back button which allows the user to go back to the main menu
+		uiManager.AddButton(cam, "Back", 800, 1.0f, Vec3(0), false, { -300, 50 }, { 300, 200 }, &GameState::Menu);
+	}
+
+	void App::InitSettings(Camera& cam)
+	{
+		// Adds the title text
+		uiManager.AddText("Blocky", height - 50.0f, 1.0f, Vec3(0.7, 0.1, 0.1), false);
+		// Adds the button which allows the user to go back to the menu
+		uiManager.AddButton(cam, "Menu", 800, 1.0f, Vec3(0), false, { -300, 150 }, { 300, 300 }, &GameState::Menu);
+		// Displays info text
+		uiManager.AddText("Enter Mouse sensitivity", 500.0f, 520.0f, 0.75f, Vec3(0.1, 0.1, 0.1), false);
+		// Adds input box which allows user to enter values
+		uiManager.AddInputBox(cam, { 500,400 }, { 1100,500 }, { 0.6,0.6,0.6 }, { 0.4,0.4,0.4 });
+		// Takes current input and sets that as the current mouse sensitivty
+		uiManager.AddButton(cam, "Save", 800, 1.0f, Vec3(0), false, { 200, 400 }, { 350, 500 }, &GameState::ChangeMouseSensitivy, { 0.6 }, { 0.5 }, { 0.4 }, true);
+	}
+
+	void App::InitInGameUI(Camera& cam)
+	{
+		// Adds the crosshair at the center of the screen
+		uiManager.AddRectTextured(cam, { (width / 2) - 16.0f, (height / 2) - 16.0f }, { (width / 2) + 16.0f, (height / 2) + 16.0f }, { 0.5,0.5,0.5 }, "crosshair.png");
+	}
+}
+App/Src/World/Chunk.Cpp
+#include "world/chunk.h"
+#include "world/block.h"
+#include "logger.h"
+#include "world/NoiseGenerator.h"
+#include "world/block_types.hpp"
+#include "graphics/VertexBuffer.h"
+#include <graphics/Texture.h>
+
+namespace Blocky {
+
+	Chunk::~Chunk()
+	{
+	}
+ 
+	void Chunk::Shape(VertexArray& vao, VertexArray& waterVa, 
+		Shader& shader, Shader& WaterShader, int centerX, int centerZ, FastNoiseLite noise, std::map<Vec2, int>& hightMap,
+		int hash)
+	{
+		// sets up the basic variables
+		centx = centerX; centz = centerZ; 
+		va = std::move(vao); waterVao = std::move(waterVa);
+		chunkShader = std::move(shader);  waterShader = std::move(WaterShader);
+
+		// makes the center be in the mid point of the chunk
+		center = Vec2(centx+8, centz+8);
+
+		// removes any data left in the vectors
+		// mostly just in case should not matter
+		vertexData.clear();
+		indicesData.clear();
+
+		waterVertexData.clear();
+		waterIndicesData.clear();
+
+		// the chunks must have coordinates which are mmultiples of 16 as the chunks are 16 x 16 x 128
+		if ((centx % 16 != 0) || (centz % 16 != 0)) {
+			Logger::output(FATAL, "Can not create chunk with x and z coordinate of multipule of 16");
+		}
+
+		// makes the blockmeshdata vector the correct size and makes every block air
+		blockMeshData.resize(16, std::vector<std::vector<uint8_t> >(16, std::vector<uint8_t>(128, BlockTypes::Air)));
+
+		for (int x = 0; x < 16; x++) {
+			for (int z = 0; z < 16; z++) {
+				// gets the max height of a given coloumn
+				int maxHeight = NoiseGen::GetHeight(x + centx, z + centz, noise, hightMap);
+				// checks if the highest block should be the noise generated block or if it should be the water level
+				int height = maxHeight > WATERLEVEL ? maxHeight : WATERLEVEL;
+				for (int y = 0; y <= height; y++) {
+					// the settings for what block should be placed in which spot
+					if (y == maxHeight)
+						blockMeshData[x][z][y] = BlockTypes::Grass;
+					else if (y < maxHeight && y > maxHeight - 3)
+						blockMeshData[x][z][y] = BlockTypes::Dirt;
+					else if (y <= maxHeight - 3 && y > 2)
+						blockMeshData[x][z][y] = BlockTypes::Stone;
+					else if (y <= 2)
+						blockMeshData[x][z][y] = BlockTypes::Bedrock;
+					else if (y <= WATERLEVEL) 
+						blockMeshData[x][z][y] = BlockTypes::Water;
+					else
+						blockMeshData[x][z][y] = BlockTypes::Air;
+				}
+			}
+		}
+	}
+
+	void Chunk::GenerateMesh(std::unordered_map<uint32_t, BlockData>& texLoc, std::map<Vec2, int>& hightMap, FastNoiseLite noise)
+	{
+		// creates a 3D array to use for generation as the speed up is around 100x from using the vector
+		uint32_t Blocks[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT] = {};
+		for (size_t x = 0; x < 16; x++) {
+		for (size_t z = 0; z < 16; z++) {
+		for (size_t y = 0; y < 128; y++){
+			Blocks[x][z][y] = blockMeshData[x][z][y];
+		}
+		}
+		}
+
+		// handy variables mostly used for debuging and minor optimistions
+		int facesMeshed = 0;
+		int waterFacesMeshed = 0;
+		// loops through the world
+		for (int x = 0; x < 16; x++) {
+			for (int z = 0; z < 16; z++) {
+				for (int y = 0; y < 128; y++) {
+					// if the current block is not air
+					if (Blocks[x][z][y] != BlockTypes::Air) {
+						// gets the current block texture
+						BlockData blockTexCoords = texLoc[Blocks[x][z][y]];
+						// creates the block with given parameters
+						Block block(Blocks, blockTexCoords, x + centx, z + centz, y, hightMap, noise);
+						// if the current block is not water
+						if (Blocks[x][z][y] != BlockTypes::Water)
+						{
+							// adds blocks vertex data to the chunks vertex data
+							for (auto vertex : block.GetVertexData())
+								vertexData.push_back(vertex);
+							// adds the blocks indices data to the chunks indices dat
+							for (auto indice : block.GetIndices()) {
+								// adds the indice and accounts for how many faces have already been added
+								indicesData.push_back(indice + (facesMeshed * 4));
+							}
+							facesMeshed += block.GetFaces();
+						}
+						else {
+
+							// adds blocks vertex data to the chunks vertex data
+							for (auto vertex : block.GetVertexData())
+								waterVertexData.push_back(vertex);
+							for (auto indice : block.GetIndices()) {
+								// adds the indice and accounts for how many faces have already been added
+								waterIndicesData.push_back(indice + (waterFacesMeshed * 4));
+							}
+							waterFacesMeshed += block.GetFaces();
+						}
+					}
+				}
+			}
+		}
+		// binds the vao for solid blocks
+		va.Bind();
+		// creates the vertex buffer with the vertex data
+		vb.Create(vertexData.data(), vertexData.size() * sizeof(float));
+		// creates the index buffer with the indices of the chunk
+		ib.Create(indicesData.data(), indicesData.size());
+
+		// frees up the no longer used memory
+		vertexData.clear();
+		indicesData.clear();
+
+		// tells the gpu to read the data as a vec3 and vec2 with normilised floats
+		VBLayout layout{};
+		layout.Push(GL_FLOAT, 3, GL_FALSE);
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		// adds the vertex buffer and layout to the vao
+		va.AddBuffer(vb, layout);
+
+		// creates the shader for the solid blocks
+		chunkShader.Create("app/res/shaders/vertex.glsl", "app/res/shaders/fragment.glsl");
+		chunkShader.Bind();
+		// creates the texture which will be used by both the solid blocks and water
+		texture.Create("app/res/textures/SpriteSheet.png", GL_NEAREST);
+		texture.Bind();
+
+		// binds the water vertex array
+		waterVao.Bind();
+		// creates the water vertex buffer amd populates the buffer with the vertex data 
+		waterVb.Create(waterVertexData.data(), waterVertexData.size() * sizeof(float));
+		// creates the index buffer and populates the buffer with the indices
+		waterIb.Create(waterIndicesData.data(), waterIndicesData.size());
+
+		// tells adds the same layout as for solid blocks
+		waterVao.AddBuffer(waterVb, layout);
+
+		// creates the shader to be used by the water 
+		waterShader.Create("app/res/shaders/waterVertex.glsl", "app/res/shaders/waterFrag.glsl");
+		waterShader.Bind();
+	}
+
+	std::map<Vec3, uint32_t>& Chunk::GenerateDetails(std::unordered_map<uint32_t, BlockData>& texLoc, std::map<Vec2, int>& hightMap,
+		FastNoiseLite noise, std::map<Vec3, uint32_t>& blocksToPlace)
+	{
+		// sets the random seed
+		srand(seed + centx + centz);
+		// loops through the chunk x and z
+		for (int x = 0; x < CHUNK_WIDTH; x++) {
+			for (int z = 0; z < CHUNK_DEPTH; z++) {
+				// gets a random number between 0 and 999
+				int rng = rand() % 1000;
+				if (rng > 995) {
+					// Generate tree at x,z and y
+					int maxHeight = NoiseGen::GetHeight(x + centx, z + centz, noise, hightMap);
+				
+					BlockTypes type;
+					// gives a 1 in 1000 chance to generte a birch tree
+					if (rng > 998) type = BlockTypes::birch;
+					else type = BlockTypes::oak;
+					// block is not too close to the water to give more accurate looking tree generation
+					if (maxHeight > WATERLEVEL + 2)
+						PlaceTree(x, z, maxHeight, blocksToPlace, type);
+				}
+			}
+		}
+		return blocksToPlace;
+	}
+
+	std::map<Vec3, uint32_t>& Chunk::PlaceTree(int x, int z, int y, std::map<Vec3, uint32_t>& blocksToPlace, BlockTypes type)
+	{
+		// places the basic stump of the tree with 5 blocks of tree log and 2 leaves above them
+		blockMeshData[x][z][y + 1] = type;
+		blockMeshData[x][z][y + 2] = type;
+		blockMeshData[x][z][y + 3] = type;
+		blockMeshData[x][z][y + 4] = type;
+		blockMeshData[x][z][y + 5] = type;
+		blockMeshData[x][z][y + 6] = BlockTypes::leaf;
+		blockMeshData[x][z][y + 7] = BlockTypes::leaf;
+		// gets the x and z of the block in world space instead of chunk space
+		float vX = x + centx;
+		float vY = (float)y;
+		float vZ = z + centz;
+
+		// sets the block to the left of the tree to be leafs
+		blocksToPlace[{vX - 2, vY + 5, vZ}] = BlockTypes::leaf;
+		blocksToPlace[{vX - 1, vY + 5, vZ}] = BlockTypes::leaf;
+		blocksToPlace[{vX - 1, vY + 6, vZ}] = BlockTypes::leaf;
+
+		// sets the blocks to the right of the tree to be leafs
+		blocksToPlace[{vX + 2, vY + 5, vZ}] = BlockTypes::leaf;
+		blocksToPlace[{vX + 1, vY + 5, vZ}] = BlockTypes::leaf;
+		blocksToPlace[{vX + 1, vY + 6, vZ}] = BlockTypes::leaf;
+
+		// sets the blocks to the back of the tree to be leafs
+		blocksToPlace[{vX, vY + 5, vZ - 2}] = BlockTypes::leaf;
+		blocksToPlace[{vX, vY + 5, vZ - 1}] = BlockTypes::leaf;
+		blocksToPlace[{vX, vY + 6, vZ - 1}] = BlockTypes::leaf;
+
+		// sets the blocks to the front of the tree to be leafs
+		blocksToPlace[{vX, vY + 5, vZ + 2}] = BlockTypes::leaf;
+		blocksToPlace[{vX, vY + 5, vZ + 1}] = BlockTypes::leaf;
+		blocksToPlace[{vX, vY + 6, vZ + 1}] = BlockTypes::leaf;
+
+		// sets the blocks in the corners to be leafs
+		blocksToPlace[{vX + 1, vY + 5, vZ + 1}] = BlockTypes::leaf;
+		blocksToPlace[{vX + 1, vY + 5, vZ - 1}] = BlockTypes::leaf;
+		blocksToPlace[{vX - 1, vY + 5, vZ + 1}] = BlockTypes::leaf;
+		blocksToPlace[{vX - 1, vY + 5, vZ - 1}] = BlockTypes::leaf;
+
+		return blocksToPlace;
+	}
+
+	void Chunk::SetBlock(int x, int y, int z, uint32_t blockType)
+	{
+		blockMeshData[x][z][y] = blockType;
+	}
+
+	void Chunk::Draw(Camera& camera, bool underWater, float lightValue)
+	{
+		// binds the texture and shader
+		texture.Bind();
+		chunkShader.Bind();
+		// sends the matrixs to the gpu
+		chunkShader.SetMatrix4("u_Model", camera.GetModel());
+		chunkShader.SetMatrix4("u_Projection", camera.GetProjection());
+		chunkShader.SetMatrix4("u_View", camera.GetView());
+		// sets the texture to be the basic texture
+		chunkShader.SetUniform1i("uTexture", 0);
+		// sets the lighting value to be the given float
+		chunkShader.SetUniform1f("lighting", lightValue);
+
+		// if the player is underwater than change screen to have a blue tint
+		if(underWater)
+			chunkShader.SetUniform1f("waterEffect", 0.85);
+		else
+			chunkShader.SetUniform1f("waterEffect", 1);
+
+		// draws all the trinagles to the screen for solid blocks
+		DrawElements(va, ib, chunkShader);
+
+		// if there is water in the chunk
+		if (waterIb.GetCount() > 0) {
+			// binds the shader
+			waterShader.Bind();
+			// sends the matrixs to the gpu
+			waterShader.SetMatrix4("u_Model", camera.GetModel());
+			waterShader.SetMatrix4("u_Projection", camera.GetProjection());
+			waterShader.SetMatrix4("u_View", camera.GetView());
+			// sets the texture to be the base texture
+			waterShader.SetUniform1i("uTexture", 0);
+			// sets the lighting to be the given value
+			waterShader.SetUniform1f("lighting", lightValue);
+			// draws all the water traingles to the screen
+			DrawElements(waterVao, waterIb, waterShader);
+		}
+	}
+
+	void Chunk::SetDistance(Vec3& playerPos)
+	{
+		// calulates the pythagoren distance in the x and y axis with no cosideration of y
+		pythaDis = ((playerPos.x - center.x) * ((playerPos.x - center.x))) + ((playerPos.z - center.y) * ((playerPos.z - center.y)));
+	}
+}
+
+App/Src/World/World.Cpp
+#include "world/world.h"
+#include "external/FastNoiseLite.h"
+#include "core/utils.h"
+#include <thread>
+#include <algorithm>
+#include "core/GameState.h"
+
+namespace Blocky{
+	// inits the variables and creates the texture cachce
+	World::World()
+		: textureLocs(CreateTextureCache()), underWater(false), sunRotation(0)
+	{
+	}
+
+	void World::CreateWorld(Camera& camera)
+	{
+		// if the user has not enterd a seed generate a random seed
+		if (GameState::seed.empty()) GameState::seed = GenRandomSeed();
+
+		// display the basic infomation of the world generation
+		Logger::output(KEYINFO, "Creating new world Seed: %s : %d : size %d: ",
+			GameState::seed.c_str(), hashWorldSeed(GameState::seed.c_str()), GameState::worldSize);
+
+		// sets the random seed to the 
+		srand(hashWorldSeed(GameState::seed.c_str()));
+
+		// makes all the vectors the correct size as otherwise the gates of hell open and randomness can seep through
+		chunks.resize(GameState::worldSize);
+		left.resize(GameState::worldSize);
+		right.resize(GameState::worldSize);
+
+		// creates the sun and the moon
+		sun.Create(camera);
+		moon.Create(camera);
+
+		// sets the noise settings 
+		noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2S);
+		noise.SetSeed(hashWorldSeed(GameState::seed.c_str()));
+		noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+		noise.SetFractalOctaves(9);
+
+		// gets the postition of the camera and sets up some basic varaibles
+		Vec3 posistion = camera.GetPosition();
+		int index = 0;
+		uint32_t xPos = (int)posistion.x;
+		uint32_t zPos = (int)posistion.z;
+
+		// loops through all the chunks
+		for (size_t x = xPos - (GameState::chunkSize * 8); x < xPos + (GameState::chunkSize * 8); x += 16)
+		{
+			for (size_t z = zPos - (GameState::chunkSize * 8); z < zPos + (GameState::chunkSize * 8); z += 16)
+			{
+				// gets the location
+				Vec2 location = Vec2(x, z);
+				// sets up the vertex solid blocks array and water blocks array
+				va.Create();
+				waterva.Create();
+				// creates the basic landscape of the terrain and the block types
+				chunk.Shape(va, waterva, shader, waterShader, x, z, noise, hightMap, hashWorldSeed(GameState::seed.c_str()));
+				// sets the distance of the chunk from the player
+				chunk.SetDistance(posistion);
+				// moves the chunk into the storage of chunks
+				chunks[index] = std::move(chunk);
+				index++;
+			}
+		}
+
+		for (index = 0; index < GameState::worldSize; index++) {
+			// generates trees
+			blocksToPlace = chunks[index].GenerateDetails(textureLocs, hightMap, noise, blocksToPlace);
+
+			// if there is a tree block
+			if (blocksToPlace.size() > 1) {
+				// place the needed blocks
+				PlaceBlocks(blocksToPlace);
+			}
+			blocksToPlace.clear();
+		}
+
+		// Generate Mesh
+		for (index = 0; index < GameState::worldSize; index++)
+		{
+			// generates the actual visable parts includeing the textures
+			chunks[index].GenerateMesh(textureLocs, hightMap, noise);
+		}
+		// sorts the chunks based on their distance from the player
+		mergeSort(chunks, 0, GameState::worldSize - 1);
+		Logger::output(KEYINFO, "world generated");
+	}
+
+	int World::hashWorldSeed(const char* seed)
+	{
+		int hash = 0;
+		// simlpe style has shich works by looping through the whole string
+		for (int i = 0; seed[i] != '\0'; i++) {
+			// adds the char value to the hash value
+			hash += (char)seed[i];
+		}
+		return hash;
+	}
+
+	bool World::CheckCollide(AABB aabb)
+	{
+		// find the nearest blocks to the camera
+		Vec3 pos = aabb.GetMin();
+
+		// use linear search to find which chunk the aabb is in as chunks are sorted should 
+		// always be one of the first for the camera
+		int chunkIndex = inChunk(pos);
+		// Check the 27 blocks around the player
+
+		// checks if the player is currently under water
+		if (chunks[chunkIndex].GetBlock((int)pos.x % 16, pos.y, (int)pos.z % 16) == BlockTypes::Water)
+			underWater = true;
+		else
+			underWater = false;
+
+		// loops around the player in a 3x3x3 grid 
+
+		for (int x = -1; x <= 1; x++) {
+			int xPos = ceil(pos.x) + x;
+			for (int z = -1; z <= 1; z++) {
+				int zPos = ceil(pos.z) + z;
+				for (int y = -1; y <= 1; y++) {
+					// gets the current posistion of the block
+					int yPos = ceil(pos.y) + y;
+					Vec3 blockPos = { (float)xPos, (float)yPos, (float)zPos };
+
+					// gets which block is at this postistion
+					uint8_t block = chunks[chunkIndex].GetBlock(xPos % 16, yPos, zPos % 16);
+					// if the block is solid
+					if (!((block == BlockTypes::Air) || (block == BlockTypes::Water))) {
+						// creates the collider of the block
+						AABB block;
+						block.Update(blockPos, blockPos + 1);
+						// checks if the player is inside the currently being check
+						bool colide = AABB::collide(aabb, block);
+						if (colide)
+							return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	int World::inChunk(Vec3 pos)
+	{
+		// seachs from the back as the current chunk should be the last one
+		int chunkIndex = GameState::worldSize;
+		for (chunkIndex > 0; chunkIndex--;) {
+			Vec2 center = chunks[chunkIndex].GetCenter();
+			// checks if the player is inside the chunk
+			if ((pos.x >= center.x - 8) && (pos.x <= center.x + 8)) {
+				if ((pos.z >= center.y - 8) && (pos.z <= center.y + 8)) {
+					return chunkIndex;
+				}
+			}
+		}
+		return -1;
+	}
+
+	void World::PlaceBlocks(std::map<Vec3, uint32_t> blocks)
+	{
+		// loops through all the blocks that need to be placed
+		for (const auto block : blocks) {
+			// gets which chunk the player is in
+			int chunkIndex = inChunk(block.first);
+
+			// if the chunk exist
+			if (chunkIndex != -1)
+				chunks[chunkIndex].SetBlock((int)block.first.x % 16, (int)block.first.y, (int)block.first.z % 16, block.second);
+			// the chunk is not loaded so store it for later use
+			else {
+				Logger::output(INFO, "Block for ungenerated chunk count : %d", blocksToPlaceCold.size());
+				blocksToPlaceCold[block.first] = block.second;
+			}
+		}
+
+	}
+
+	std::string World::GenRandomSeed()
+	{
+		// sets the random seed
+		srand(time(NULL));
+		// generates random natural number
+		uint32_t seed = floor(abs(rand()) * PI * 52313266);
+		return std::to_string(seed);
+	}
+
+	void World::update(Camera& camera, Clock& clock)
+	{
+		// Generate pre planed chunks
+		GeneratePrePlan();
+
+		// Moves the player based upon inputs
+		camera.Update(clock.DT());
+
+		// checks if player is now colliding with the world
+		bool colide = CheckCollide(camera.GetAABB());
+		if (colide) {
+			camera.ResetMove();
+		}
+		// gets the current posistion and upadtes the last pos
+		playerPos = camera.GetPosition();
+		Vec3 lastPos = camera.GetLastPosition();
+
+		// gets the chunk location 
+		Vec2 chunkLoc = Vec2(playerPos.x, playerPos.z);
+		Vec2 chunkLastLoc = Vec2(lastPos.x, lastPos.z);
+		if (playerPos == lastPos) return;
+		// calulate distance from player
+		for (Chunk& chunk : chunks) {
+			chunk.SetDistance(playerPos);
+		}
+		// sort the chunks based on distance
+		mergeSort(chunks, 0, GameState::worldSize - 1);
+
+		if (GameState::infinte)
+			InfiteWorldGen();
+	}
+
+	void World::InfiteWorldGen()
+	{
+		int chunksGenerated = 0;
+		// loops through the world size
+		for (int x = -GameState::chunkSize * 8; x < GameState::chunkSize * 8; x += 16) {
+			for (int z = -GameState::chunkSize * 8; z < GameState::chunkSize * 8; z += 16) {
+				// gets the current chunk location
+				Vec3 location = Vec3(playerPos.x + x, 0, playerPos.z + z);
+				// if the current chunk does not exist
+				if (inChunk(location) == -1) {
+					chunksGenerated++;
+					// gets the nearest chunk x and z coordinates which is where the chunk should generate
+					location.x = RoundPow2(location.x, 16) - 16;
+					location.z = RoundPow2(location.z, 16) - 16;
+					// calulates the distance int the x and z axis
+					float dist = ((playerPos.x - location.x) * ((playerPos.x - location.x))) + ((playerPos.z - location.z) * ((playerPos.z - location.z)));
+					// if this chunk is closer than the farest away chunk
+					if (dist < chunks[0].GetDistance()) {
+						// sets the distance of the farest chunk to be this chunks distance
+						chunks[0].ForceSetDist(dist);
+						// sets the new chunk to be generated
+						chunksToGen[location] = true;
+					}
+				}
+			}
+		}
+	}
+
+	void World::GenerateChunk(Vec3& location)
+	{
+		// creates the vertex array for both solid and water blocks
+		va.Create();
+		waterva.Create();
+		// shapes the chunk and creates the basic shape of the terrain
+		chunk.Shape(va, waterva, shader, waterShader, location.x, location.z, noise, hightMap, hashWorldSeed(GameState::seed.c_str()));
+		// sets the distance of the chunk
+		chunk.SetDistance(playerPos);
+		// moves this chunk into the chunk which has the greatest distance
+		chunks[0] = std::move(chunk);
+
+		// generates the trees
+		blocksToPlace = chunks[0].GenerateDetails(textureLocs, hightMap, noise, blocksToPlace);
+		if (blocksToPlace.size() > 1) {
+			PlaceBlocks(blocksToPlace);
+		}
+
+		// Check for ungenerated blocks
+		if (blocksToPlaceCold.size() > 1) {
+			PlaceBlocks(blocksToPlaceCold);
+		}
+
+		// clears the blocks
+		blocksToPlace.clear();
+		// generates the mesh and then sorts them
+		chunks[0].GenerateMesh(textureLocs, hightMap, noise);
+		mergeSort(chunks, 0, GameState::worldSize - 1);
+	}
+
+	void World::GeneratePrePlan()
+	{
+		int chunksGenerated = 0;
+		// loops through all the values in the dictionary
+		for (auto& chunkCoord : chunksToGen) {
+			// if the chunk should be generated
+			if (chunkCoord.second == true) {
+				// generates the chunk
+				Vec3 temp = Vec3(chunkCoord.first.x, 0, chunkCoord.first.z);
+				GenerateChunk(temp);
+				chunksGenerated++;
+				// set it so that it doesnt need to be generated
+				chunksToGen[chunkCoord.first] = false;
+				chunksToGen.erase(chunkCoord.first);
+			}
+			else {
+				chunksToGen.erase(chunkCoord.first);
+			}
+			if (chunksGenerated >= maxChunksGenerated) break;
+
+		}
+	}
+
+	int World::RoundPow2(int number, int factor)
+	{
+		// mathmatical method to round powers of 2 to there nearest factor
+		// eg 17 -> 32
+		// eg 16 -> 16
+		return (number + factor - 1) & -factor;
+	}
+
+	void World::Draw(Camera& camera, Clock& clock)
+	{
+		// gets the suns rotation
+		sunRotation = sun.GetRotation();
+		// graphical translation of the cos graph for sun lighting
+		float rotation = (cos(sunRotation) + 2.5) / 4;
+
+		// loops through all the chunks and then draws them
+		for (Chunk& chunk : chunks) {
+			chunk.Draw(camera, underWater, rotation);
+		}
+
+		sun.Draw(camera, clock.DT());
+		moon.Draw(camera, clock.DT());
+	}
+
+	void World::MergeComb(std::vector<Chunk>& arr, int start, int mid, int end)
+	{
+		// gets the left pointer 
+		int leftP = mid - start + 1;
+		// gets the right pointer
+		int rightP = end - mid;
+
+		// inits both the left and right vectors
+		for (auto i = 0; i < leftP; i++)
+			left[i] = std::move(arr[start + i]);
+		for (auto j = 0; j < rightP; j++)
+			right[j] = std::move(arr[mid + 1 + j]);
+
+		int leftIndex = 0;
+		int rightIndex = 0;
+		int mergeIndex = start;
+
+		// loops while values need to be inputed and both the left and right have values
+		while (leftIndex < leftP && rightIndex < rightP) {
+			// checks which chunk is closer
+			if (left[leftIndex].GetDistance() > right[rightIndex].GetDistance()) {
+				// if the left chunk is closer to the camera
+				arr[mergeIndex] = std::move(left[leftIndex]);
+				leftIndex++;
+			}
+			else {
+				// if the right chunk is closer to the player
+				arr[mergeIndex] = std::move(right[rightIndex]);
+				rightIndex++;
+			}
+			mergeIndex++;
+		}
+
+		// while left values 
+		while (leftIndex < leftP) {
+			// moves over all of the left over values into the vector from the left
+			arr[mergeIndex] = std::move(left[leftIndex]);
+			leftIndex++;
+			mergeIndex++;
+		}
+		// while right values
+		while (rightIndex < rightP) {
+			// moves over all the right values to the main vector from the right vector
+			arr[mergeIndex] = std::move(right[rightIndex]);
+			rightIndex++;
+			mergeIndex++;
+		}
+	}
+
+	void World::mergeSort(std::vector<Chunk>& arr, int start, int end)
+	{
+		// while not to split
+		if (start >= end) return;
+
+		// gets the midpoint of the 2 vectors
+		int mid = (start)+(end - start) / 2;
+		// sorts the left side of the vector
+		mergeSort(arr, start, mid);
+		// sorts the right side of the vector
+		mergeSort(arr, mid + 1, end);
+		// combines the vectors into one completing the merege sorts
+		MergeComb(arr, start, mid, end);
+	}
+}
+App/Src/World/Block.Cpp
+#include "world/block.h"
+#include "world/block_types.hpp"
+#include <logger.h>
+#include "world/NoiseGenerator.h"
+
+namespace Blocky {
+	Block::Block(uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT], BlockData& blockTexCoords,
+		float offsetX, float offsetZ, float offsetY, std::map<Vec2, int>& hightMap, FastNoiseLite noise)
+		: x(offsetX), y(offsetY), z(offsetZ), facesPlaced(0), texCoords(blockTexCoords), heights(hightMap), lNoise(noise)
+	{
+		// Gets the posistion within the chunk as every chunk is 16  by 16 in the x and y axis
+		int localZ = abs(z) % 16;
+		int localX = abs(x) % 16;
+
+		// if the block is water
+		if (Blocks_data[localX][localZ][y] == BlockTypes::Water) {
+			// if the block above is not water
+			if (Blocks_data[localX][localZ][y + 1] != BlockTypes::Water)
+			{
+				AddFace(waterTopFace, FaceId::top);
+			}
+		}
+		else
+		{
+			// trys to add the faces to the left and right of the center
+			AddZFacePos(localX, localZ, Blocks_data);
+			// trys to add the faces to the front and back of the center
+			AddXFacePos(localX, localZ, Blocks_data);
+
+			// if the block is bellow the max height
+			if (y < 127) {
+				// if the block to the above is transprent
+				if (Blocks_data[localX][localZ][y + 1] == BlockTypes::Air || Blocks_data[localX][localZ][y + 1] == BlockTypes::Water)
+					AddFace(topFace, FaceId::top);
+			}
+			// if the block is above the min y level
+			if (y > 0) {
+				// if the block bellow is transpernt
+				if (Blocks_data[localX][localZ][y - 1] == BlockTypes::Air || Blocks_data[localX][localZ][y - 1] == BlockTypes::Water)
+					AddFace(bottomFace, FaceId::bottom);
+			}
+
+		}
+
+	}
+
+	void Block::AddZFacePos(int localX, int localZ, uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT])
+	{
+		// if the block is not on the edge to the right
+		if (localZ < 15) {
+			// if the block to its right is transprent
+			if (Blocks_data[localX][localZ + 1][y] == BlockTypes::Air || Blocks_data[localX][localZ + 1][y] == BlockTypes::Water)
+				AddFace(frontFace, FaceId::front);
+		}
+		else {
+			TryAddFaceOutsideChunk(x, z + 1, frontFace, FaceId::front);
+		}
+		// if the block is not on the left most edge of the chunk
+		if (localZ > 0) {
+			// if the block to its left is a transprent block
+			if (Blocks_data[localX][localZ - 1][y] == BlockTypes::Air || Blocks_data[localX][localZ - 1][y] == BlockTypes::Water)
+				AddFace(backFace, FaceId::back);
+		}
+		else {
+			TryAddFaceOutsideChunk(x, z - 1, backFace, FaceId::back);
+		}
+	}
+
+	void Block::AddXFacePos(int localX, int localZ, uint32_t Blocks_data[CHUNK_WIDTH][CHUNK_DEPTH][CHUNK_HEIGHT])
+	{
+		// if the block to its left is inside its own chunk
+		if (localX < 15) {
+			// if the block to the left is transprent
+			if (Blocks_data[localX + 1][localZ][y] == BlockTypes::Air || Blocks_data[localX + 1][localZ][y] == BlockTypes::Water)
+				AddFace(leftFace, FaceId::left);
+		}
+		else {
+			TryAddFaceOutsideChunk(x + 1, z, leftFace, FaceId::left);
+		}
+		// if the block to the left is inside the current chunk
+		if (localX > 0) {
+			// if the block is non transprent
+			if (Blocks_data[localX - 1][localZ][y] == BlockTypes::Air || Blocks_data[localX - 1][localZ][y] == BlockTypes::Water)
+				AddFace(rightFace, FaceId::right);
+		}
+		else {
+			TryAddFaceOutsideChunk(x - 1, z, rightFace, FaceId::right);
+		}
+	}
+
+	void Block::TryAddFaceOutsideChunk(int xPos, int zPos, float faces[20], FaceId id)
+	{
+		// Gets the max height of the block coloum provided
+		int maxHeight = GetHeight(xPos, zPos);
+		// if the max height is less than the current blocks y then add the provided face=
+		if (maxHeight < y)
+			AddFace(faces, id);
+	}
+
+	int Block::GetHeight(int x, int y)
+	{
+		return NoiseGen::GetHeight(x, y, lNoise, heights);
+	}
+
+	void Block::AddFace(float faces[20], FaceId face)
+	{
+		textureIndex = 0;
+		for (int count = 0; count < 20; count++) {
+			// Vertex posistion
+			// adds the x pos
+			if (count % 5 == 0)
+				vetexData.push_back(faces[count] + x);
+			else if (count % 5 == 1)
+				vetexData.push_back(faces[count] + y); // adds the y coordinate
+			else if (count % 5 == 2) {
+				vetexData.push_back(faces[count] + z); // adds the z value
+			}
+			// Texture coorinates
+			else
+				AddTextureFace(face);	// adds the texture positstions
+		}
+
+		for (uint32_t index : indexs) {
+			// adds the indices by using the basic 0,1,2,2,3,0 and then adds on the number of faces to make it unique
+			indices.push_back(index + (facesPlaced * 4)); 
+		}
+		facesPlaced++;
+	}
+
+	void Block::AddTextureFace(FaceId face)
+	{
+		// goes through the face and adds the correct texture coordinates based on where the face is
+		switch (face)
+		{
+		case FaceId::top:
+			vetexData.push_back(texCoords.topFace[textureIndex]);
+			break;
+		case FaceId::front:
+			vetexData.push_back(texCoords.front[textureIndex]);
+			break;
+		case FaceId::back:
+			vetexData.push_back(texCoords.back[textureIndex]);
+			break;
+		case FaceId::right:
+			vetexData.push_back(texCoords.right[textureIndex]);
+			break;
+		case FaceId::left:
+			vetexData.push_back(texCoords.left[textureIndex]);
+			break;
+		case FaceId::bottom:
+			vetexData.push_back(texCoords.bottomFace[textureIndex]);
+			break;
+		default:
+			Logger::output(WARNING, "Failed to find valid texture face");
+			break;
+		}
+		textureIndex++;
+	}
+}
+App/Src/World/Sky/Celestialmodel.Cpp
+#include "world/sky/CelestialModel.h"
+
+namespace Blocky{
+	void CelestialModel::Create(Camera& camera)
+	{
+
+	}
+
+	void CelestialModel::Draw(Camera& cam, float DT)
+	{
+		// Gets where the player is
+		Vec3 Center = cam.GetPosition();
+		// Sets up the translation to move the object to where the player is
+		Vec3 translate = Vec3((-Center.z * 2) + scaleFactor / 2, 0, (-Center.x * 2) + scaleFactor / 2);
+		// shifts the sun to very far above the player
+		Vec3 Shift = Vec3{ 0 , distance + Center.y, 0 };
+
+		// sets the scale of the object
+		Vec3 scale = Vec3{ scaleFactor,0,scaleFactor };
+
+		// Gets the basic matrix for model
+		auto model = cam.GetModel();
+		// translates the matrix
+		model = Matrix::Translate(model, translate);
+		model = Matrix::Rotate(model, (float)DEG_TO_RAD(-90.0f), Vec3{ 0,1,0 });
+		model = Matrix::Rotate(model, angle, Vec3{ 1,0,0 });
+		model = Matrix::Translate(model, Shift);
+		model = Matrix::Scale(model, scale);
+
+		// binds the texture
+		texture.Bind();
+		shader.Bind();
+		// Sends the matrix data to the gpu
+		shader.SetMatrix4("u_Model", model);
+		shader.SetMatrix4("u_Projection", cam.GetProjection());
+		shader.SetMatrix4("u_View", cam.GetView());
+		shader.SetUniform1i("uTexture", 0);
+		// Draws all the indices to the screen
+		DrawElements(va, ib, shader);
+		// Increments the angle
+		angle += 0.1 * DT;
+
+		// makes sure the angle between 0 and TWOPI
+		if (angle > TWOPI) {
+			angle = 0;
+		}
+	}
+}
+App/Src/World/Sky/Sun.Cpp
+#include "world/sky/sun.h"
+
+namespace Blocky {
+	void Sun::Create(Camera& camera)
+	{
+		// Creates the vertex array
+		va.Create();
+		va.Bind();
+
+		// Creates the vertex buffer with the sun data
+		vb.Create(&rect, 40 * sizeof(float));
+		vb.Bind();
+		// Creates the indices buffer with the need instructions to draw the sun
+		ib.Create(indices, 12);
+		ib.Bind();
+		// Creates the sun texture
+		texture.Create("app/res/textures/sun.png", GL_NEAREST);
+		texture.Bind();
+		// Creates the sun shader
+		shader.Create("app/res/shaders/skyVert.glsl", "app/res/shaders/skyFrag.glsl");
+		shader.Bind();
+		// Tells the GPU the data will be sent as a vec3 and vec2
+		VBLayout layout{};
+		layout.Push(GL_FLOAT, 3, GL_FALSE);
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		va.AddBuffer(vb, layout);
+	}
+}
+
+App/Src/World/Sky/Moon.Cpp
+#include "world/sky/moon.h"
+
+namespace Blocky{
+	void Moon::Create(Camera& camera)
+	{
+		// Creates the vertex array
+		va.Create();
+		va.Bind();
+		// Creates the vertex buffer with the vertices and the size
+		vb.Create(&rect, 40 * sizeof(float));
+		vb.Bind();
+		// Sets the indices buffer to have the instructions to draw the square
+		ib.Create(indices, 12);
+		ib.Bind();
+		// sets the texture of the moon
+		texture.Create("app/res/textures/moon.png", GL_NEAREST);
+		texture.Bind();
+		// Creates the shader for the moon
+		shader.Create("app/res/shaders/skyVert.glsl", "app/res/shaders/skyFrag.glsl");
+		shader.Bind();
+		// Sets the moon to be setting
+		angle = PI;
+		// States to the GPU that the data will be sent as a vec3 and a vec2
+		VBLayout layout{};
+		layout.Push(GL_FLOAT, 3, GL_FALSE);
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		va.AddBuffer(vb, layout);
+	}
+}
+App/Src/Core/Gamestate.Cpp
+#include "core/GameState.h"
+#include <logger.h>
+#include <Windows.h>
+
+namespace GameState
+{
+	extern bool menu = true;
+	extern bool game = false;
+	extern bool preGame = false;
+	extern bool settings = false;
+	extern bool inGameSettings = false;
+
+	extern bool ChangedSens = false;
+	extern std::string currentText = "";
+	extern float mouseSens = 2.0f;
+	extern bool quit = false;
+	extern bool update = false;
+	extern bool loadWorld = false;
+	extern bool firstLoad = false;
+	extern bool fullScreen = false;
+	extern bool infinte = true;
+
+	extern int chunkSize = 6;
+	extern int worldSize = chunkSize * chunkSize;
+	extern std::string seed = "";
+
+	void Reset()
+	{
+		menu = false;
+		game = false;
+		preGame = false;
+		settings = false;
+		inGameSettings = false;
+	}
+
+	void Menu()
+	{
+		Reset();
+		menu = true;
+		update = true;
+	}
+
+	void SettingsMenu()
+	{
+		Reset();
+		update = true;
+		settings = true;
+	}
+
+	void Quit()
+	{
+		Reset();
+		quit = true;
+		update = true;
+	}
+
+	void ChangeMouseSensitivy()
+	{
+		ChangedSens = true;
+		mouseSens = (float)std::stof(currentText);
+	}
+
+	void UpdateWorldSize()
+	{
+		if (currentText.size() == 0) return;
+		for (char c : currentText) {
+			if ((c < 48) || (c  > 57)) {
+				Logger::output(INFO, "Char %c", c);
+				MessageBox(nullptr, TEXT("World size must be interger"), TEXT("ERROR"), MB_OK);
+				return;
+			}
+		}
+	
+		int size = stoi(currentText);
+		if (size % 2 == 1) size++;
+		chunkSize = size;
+		worldSize = size * size;
+	}
+
+	void SetSeed()
+	{
+		seed = currentText;
+	}
+
+	void SetInfinte()
+	{
+		infinte = !infinte;
+	}
+
+	void PreGame()
+	{
+		Reset();
+		preGame = true;
+		update = true;
+	}
+
+	void Game()
+	{
+		Reset();
+		if (loadWorld == false) {
+			loadWorld = true;
+			firstLoad = true;
+		}
+		else {
+			firstLoad = false;
+		}
+		game = true;
+		update = true;
+	}
+}
+App/Src/Core/Aabb.Cpp
+#include "core/aabb.h"
+
+namespace Blocky {
+    /// <summary>
+    /// Returns true if one aabb is inside the other passed aabb
+    /// </summary>
+    /// <param name="a"> AABB contains min and max vector</param>
+    /// <param name="b"> AABB contains min and max vector</param>
+    /// <returns>true if collision false if no collision</returns>
+    bool AABB::collide(AABB a, AABB b)
+    {
+        return
+            a.min.x <= b.max.x &&
+            a.max.x >= b.min.x &&
+            a.min.y <= b.max.y &&
+            a.max.y >= b.min.y &&
+            a.min.z <= b.max.z &&
+            a.max.z >= b.min.z;
+    }
+}
+App/Src/Core/Input.Cpp
+#include "core/input.h"
+#include "logger.h"
+
+namespace Input
+{
+	bool keyPressedData[GLFW_KEY_LAST] = {};
+	bool mouseButtonPressedData[GLFW_MOUSE_BUTTON_LAST] = {};
+	float mouseX = 0.0f;
+	float mouseY = 0.0f;
+	float mouseScrollX = 0.0f;
+	float mouseScrollY = 0.0f;
+	char currentKey = NULL;
+
+	void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		if (key >= 0 && key < GLFW_KEY_LAST)
+		{
+			if (action == 2) action = 1;
+			keyPressedData[key] = action;
+
+			if(action != 0)
+				currentKey = (char)key;
+		}
+	}
+
+	void mouseCallback(GLFWwindow* window, double xpos, double ypos)
+	{
+		mouseX = (float)xpos;
+		mouseY = (float)ypos;
+	}
+
+	void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+	{
+		if (button >= 0 && button < GLFW_MOUSE_BUTTON_LAST)
+		{
+			mouseButtonPressedData[button] = action == GLFW_PRESS;
+		}
+	}
+
+	void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+	{
+		mouseScrollX = (float)xoffset;
+		mouseScrollY = (float)yoffset;
+	}
+
+	bool isKeyDown(int key)
+	{
+		if (key >= 0 && key < GLFW_KEY_LAST)
+		{
+			return keyPressedData[key];
+		}
+
+		return false;
+	}
+
+	bool isMouseButtonDown(int mouseButton)
+	{
+		if (mouseButton >= 0 && mouseButton < GLFW_MOUSE_BUTTON_LAST)
+		{
+			return mouseButtonPressedData[mouseButton];
+		}
+
+		return false;
+	}
+}
+App/Src/Core/Window.Cpp
+#include "core/window.h"
+#include "logger.h"
+
+#include <iostream>
+
+void Window::InstallMainCallback()
+{
+	if (window != nullptr)
+	{
+		glfwSetKeyCallback(window, Input::keyCallback);
+		glfwSetCursorPosCallback(window, Input::mouseCallback);
+		glfwSetMouseButtonCallback(window, Input::mouseButtonCallback);
+	}
+}
+
+void Window::Close()
+{
+	if (window != nullptr) {
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
+}
+
+Window* Window::CreateWindow(int width, int height, const char* title, bool fullScreen)
+{
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	Window* res = new Window();
+	GLFWmonitor* primaryMonitor = fullScreen ? glfwGetPrimaryMonitor() : nullptr;
+	res->window = glfwCreateWindow(width, height, title, primaryMonitor, nullptr);
+	if (res->window == nullptr)
+	{
+		Logger::output(FATAL, "Failed to create GLFW window");
+		glfwTerminate();
+		return nullptr;
+	}
+	glfwSetInputMode(res->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	glfwMakeContextCurrent(res->window);
+
+	return res;
+}
+
+void Window::FreeWindow(Window* window)
+{
+	if (window) {
+		glfwDestroyWindow(window->window);
+		delete window;
+	}
+}
+
+App/Src/Core/Utils.Cpp
+
+App/Src/Ui/Font.Cpp
+#include "UI/Font.h"
+#include "logger.h"
+#include "glad/glad.h"
+#include <string>  
+#include "core/GameState.h"
+
+namespace Blocky {
+	Font::~Font()
+	{
+		Logger::output(INFO, "destroying font handler");
+	}
+
+	void Font::Create(std::string dir, std::string name)
+	{
+		// inits variables
+		directory = dir; fontName = name;
+		// inits the freetype handle
+		if (FT_Init_FreeType(&ft))
+			Logger::output(FATAL, "Could not init FreeType Library");
+		// loads the font
+		if (FT_New_Face(ft, (dir + fontName).c_str(), 0, &face))
+			Logger::output(FATAL, "Failed to load font");
+		// tests if loading glyphs works
+		FT_Set_Pixel_Sizes(face, 0, 48);
+		if (FT_Load_Char(face, 'Y', FT_LOAD_RENDER))
+			Logger::output(FATAL, "Failed to load Glyph");
+
+		Logger::output(INFO, "Font handler init");
+		// Sets glyph size
+		FT_Set_Pixel_Sizes(face, 0, 48);
+		// loads all the characters
+		InitCharacters();
+		// creates the vertex array
+		va.Create();
+		va.Bind();
+		// Creates an empty vertex buffer which will be populated once the characters have been created
+		vb.CreateEmpty(sizeof(float) * 6 * 4, GL_DYNAMIC_DRAW);
+
+		// states that the glyphs will provied with 4 floats
+		VBLayout layout{};
+		layout.Push(GL_FLOAT, 4, GL_FALSE);
+		va.AddBuffer(vb, layout);
+
+		// Creates the shader for the font handler
+		shader.Create("app/res/shaders/fontVert.glsl", "app/res/shaders/fontFragment.glsl");
+	}
+
+	void Font::InitCharacters()
+	{
+		// states how the textures will loaded into gpu memory
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+		//  loops through all standard ascii characters
+		for (unsigned char c = 0; c < 255; c++)
+		{
+			// trys to load the characters
+			if (FT_Load_Char(face, c, FT_LOAD_RENDER))
+			{
+				Logger::output(FATAL, "Failed to load Glyph %c", c);
+				continue;
+			}
+
+			// creates a texture
+			unsigned int texture;
+			glGenTextures(1, &texture);
+			glBindTexture(GL_TEXTURE_2D, texture);
+			// sets up a texture which is only 8 bytes and values are given by the glyph
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width,
+				face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+
+			// creates a character struct with the given parameters
+			Character character = {
+				texture,
+				Vec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+				Vec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+				face->glyph->advance.x
+			};
+
+			// states how openGL should handle the texture when sampling and what to do if the texture is to small
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+			// adds the character to the character dictionary
+			Characters.insert(std::pair<char, Character>(c, character));
+		}
+		// unbinds the texture
+		glBindTexture(GL_TEXTURE_2D, 0);
+		// Frees up the font and font handle
+		FT_Done_Face(face);
+		FT_Done_FreeType(ft);
+
+	}
+
+	void Font::SetProjection(Camera camera)
+	{
+		shader.Bind();
+		shader.SetMatrix4("projection", camera.GetTextProjection());
+	}
+
+	void Font::AddText(std::string text, float x, float y, float scale, Vec3 color, bool clear, uint32_t id)
+	{
+		// adds text to the text vector
+		queuedText.push_back({ text, x, y, scale, color, clear, id });
+	}
+
+	void Font::RenderText()
+	{
+		int index = 0;
+		// loops through every bit of text in the vector
+		for (auto text : queuedText) {
+			// binds the texture and sends colour
+			shader.Bind();
+			shader.SetUniform3f("textColor", text.Colour.x, text.Colour.y, text.Colour.z);
+			glActiveTexture(GL_TEXTURE0);
+			va.Bind();
+
+			// The character which needs to be written
+			std::string::const_iterator c;
+			for (c = text.text.begin(); c != text.text.end(); c++)
+			{
+				// Gets the data about the character from the dictionary
+				Character ch = Characters[*c];
+
+				// gets the x posistion of the font based on where it is in the font and the scale
+				float xpos = text.x + ch.Bearing.x * text.scale;
+				// same as xpos but uses - as reads from bottom to top
+				float ypos = text.y - (ch.Size.y - ch.Bearing.y) * text.scale;
+
+				// gets the width of the character
+				float w = ch.Size.x * text.scale;
+				// Gets the height of the character
+				float h = ch.Size.y * text.scale;
+
+				// Sets the vertices of where the posistions are and where the textures are
+				float vertices[6][4] = {
+					{ xpos,     ypos + h,   0.0f, 0.0f },
+					{ xpos,     ypos,       0.0f, 1.0f },
+					{ xpos + w, ypos,       1.0f, 1.0f },
+
+					{ xpos,     ypos + h,   0.0f, 0.0f },
+					{ xpos + w, ypos,       1.0f, 1.0f },
+					{ xpos + w, ypos + h,   1.0f, 0.0f }
+				};
+				// binds the texture
+				glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+
+				// Binds the vertex buffer
+				vb.Bind();
+				// Adds data to the vertex buffer
+				vb.AddedData(vertices, sizeof(vertices));
+				vb.UnBind();
+
+				// Draws the character
+				DrawArray(va, shader, 6);
+				// moves along the character by the size of character / 6 and then scaled
+				text.x += (ch.Advance >> 6) * text.scale;
+			}
+		}
+		// loops through all the text
+		for (int i = 0; i < queuedText.size(); i++) {
+			// if the text should be cleard 
+			if (queuedText[i].toClear) {
+				queuedText.erase(queuedText.begin() + i);
+			}
+		}
+		// make the queue the smallest size possible
+		queuedText.shrink_to_fit();
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	float Font::GetTextSize(std::string text, float scale)
+	{
+		float size = 0;
+		// loops through every character in text
+		for (char c : text) {
+			Character ch = Characters[c];
+			// attempt at guess how big the text will be but does not account for characters going together
+			// eg qu may have less spacing in some fonts
+			size += ch.Size.x * scale;
+		}
+		size += text.size() * 2;
+		return size;
+	}
+
+	void Font::Clear()
+	{
+		queuedText.clear();
+	}
+
+	void Font::Update(uint32_t id, char c, bool reset)
+	{
+		// loops through all the text
+		for (int i = 0; i < queuedText.size(); i++) {
+			if (queuedText[i].id == id)
+			{
+				// if the character is the delete key
+				if ((int)c == 3) {
+					// create temp of message
+					std::string temp = queuedText[i].text;
+					// if the string has text
+					if (temp.size() > 1) {
+						// remove one character
+						temp.resize(temp.size() - 1);
+						queuedText[i].text = temp;
+					}
+					else {
+						// otherwise set as empty
+						queuedText[i].text = "";
+					}
+				}
+				// if character which should be writable
+				if ((c > 32) && (c < 128))
+				{
+					// if the input box has not been writen into
+					if (reset)
+						queuedText[i].text = c;
+					else
+						queuedText[i].text += c;
+				}
+				// set the current text
+				GameState::currentText = queuedText[i].text;
+			}
+		}
+	}
+}
+App/Src/Ui/Inputbox.Cpp
+#include "UI/inputBox.h"
+
+namespace Blocky {
+	void InputBox::Create(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour, uint32_t i_id)
+	{
+		defultColour = colour;
+		ActionColour = actionColour;
+		id = i_id;
+		// Creates the basic rectangle
+		RCreate(camera, left, right, colour);
+	}
+
+	bool InputBox::CheckClick(Vec2 mousePos)
+	{
+		// Checks if inside the rectangle
+		if (RIntersect(mousePos)) {
+			SetAction();
+			return true;
+		}
+	}
+
+	void InputBox::Draw()
+	{
+		RDraw();
+	}
+
+	void InputBox::SetAction()
+	{
+		RChangeColour(ActionColour);
+	}
+
+	bool InputBox::GetReset()
+	{
+		// if the input box has nt been writen into
+		if (reset) {
+			reset = false;
+			return true;
+		}
+		return false;
+	}
+}
+App/Src/Ui/Uimanager.Cpp
+#include "UI/UIManager.h"
+
+namespace Blocky {
+	UIManager::UIManager(float winWidth, float winHeight, std::string dir, std::string font)
+		: width(winWidth), height(winHeight), midWidth(winWidth / 2), midHeight(winHeight / 2), directory(dir), fontName(font)
+	{
+		buttonClickedId = -1;
+	}
+
+	void UIManager::Init(Camera& camera)
+	{
+		// Creates the text handler
+		textHandler.Create(directory, fontName);
+		// sets the projection
+		textHandler.SetProjection(camera);
+	}
+
+	void UIManager::ClearUI()
+	{
+		// resets the amount of UI elements
+		btnCount = 0;
+		inputBoxCount = 0;
+		rectCount = 0;
+		for (int i = 0; i < buttons.size(); i++) {
+			// creates empty button
+			Button btn = Button();
+			// moves this button into the array
+			buttons[i] = std::move(btn);
+		}
+		for (int i = 0; i < rects.size(); i++) {
+			// creates rect
+			Rect rect = Rect();
+			// moves this rect into the array
+
+			rects[i] = std::move(rect);
+		}
+		for (int i = 0; i < inputBoxs.size(); i++) {
+			// creates input box
+			InputBox ib = InputBox();
+			// moves this button into the array
+			inputBoxs[i] = std::move(ib);
+		}
+		// clears all the text
+		textHandler.Clear();
+	}
+
+	void UIManager::RendererUI()
+	{
+		DrawRects();
+		DrawButtons();
+		RenderInput();
+		DrawText();
+	}
+
+	void UIManager::Update()
+	{
+		// if there is an active button
+		if (buttonClickedId != -1) {
+			// calls the buttons callback
+			buttons[buttonClickedId].CallCallback();
+			// makes the active button null
+			buttonClickedId = -1;
+		}
+		// checks to see if left mouse button is clicked
+		if (Input::isMouseButtonDown(GLFW_MOUSE_BUTTON_1)) {
+			// if the click happens when it can
+			if (ValidClick())
+				bool click = CheckClicked({ Input::mouseX, Input::mouseY });
+		}
+		if (Input::isMouseButtonDown(GLFW_MOUSE_BUTTON_1) == false) {
+			// resets the mouse down 
+			SetValidClick();
+			ResetAll();
+		}
+		// if the user is typing into and input box
+		if ((typeText) && (Input::currentKey != NULL)) {
+			bool reset = false;
+			for (int i = 0; i < inputBoxs.size(); i++) {
+				// if the input box exists
+				if (inputBoxs[i].GetVao() != 0) {
+					// if the id of the input box is the same as the selected
+					if (selectedId == inputBoxs[i].GetId()) {
+						// check if the box should be reset
+						reset = inputBoxs[i].GetReset();
+					}
+				}
+			}
+			// update all the text
+			textHandler.Update(selectedId, Input::currentKey, reset);
+		}
+	}
+
+	void UIManager::AddRect(Camera& camera, Vec2 left, Vec2 right, Vec3 colour)
+	{
+		Rect rect;
+		// Creates a rectangle
+		rect.RCreate(camera, left, right, colour);
+		// adds it array of rectangles
+		rects[rectCount] = std::move(rect);
+		rectCount++;
+	}
+
+	void UIManager::AddRectTextured(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, std::string name)
+	{
+		// Creates texture rectangle
+		Rect rect;
+		rect.RCreateTextured(camera, left, right, colour, name);
+		// adds it to the array of rectangles
+		rects[rectCount] = std::move(rect);
+		rectCount++;
+	}
+
+	void UIManager::DrawRects()
+	{
+		// Draws all the rectangles
+		for (int i = 0; i < rects.size(); i++) {
+			if (rects[i].RGetVaoId() != 0)
+				rects[i].RDraw();
+		}
+	}
+
+	void UIManager::AddInputBox(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour)
+	{
+		// increment the number of input boxs
+		maxId++;
+		// gets where to center the box on the y axis
+		float y = (left.y + right.y - 48) / 2;
+		// Gets where to center the box on the x axis
+		float x = ((left.x + right.x) / 2) - ((right.x - left.x) / 2) + 5;
+		// Adds the text at the center of the input box
+		textHandler.AddText("Enter text", x, y, 1.0f, { 0.1 }, false, maxId);
+
+		// Creates the inputbox
+		InputBox box;
+		box.Create(camera, left, right, colour, actionColour, maxId);
+		// Move the input box into the array of input boxs
+		inputBoxs[inputBoxCount] = std::move(box);
+		inputBoxCount++;
+	}
+
+	void UIManager::RenderInput()
+	{
+		// Renderers all input boxs
+		for (int i = 0; i < inputBoxs.size(); i++) {
+			if (inputBoxs[i].GetVao() != 0)
+				inputBoxs[i].Draw();
+		}
+	}
+
+	void UIManager::CheckClick(Vec2 mousePos)
+	{
+		bool found = false;
+		// loop through every input box
+		for (int i = 0; i < inputBoxs.size(); i++) {
+			// if the input box exits
+			if (inputBoxs[i].GetVao() != 0) {
+				// reset them
+				inputBoxs[i].Reset();
+				bool click = inputBoxs[i].CheckClick({ mousePos.x, height - mousePos.y });
+				if (click) {
+					// set the currently selected input box as the found input box
+					found = true;
+					typeText = true;
+					selectedId = inputBoxs[i].GetId();
+				}
+			}
+		}
+		if (!found) {
+			typeText = false;
+		}
+	}
+
+	void UIManager::AddText(char c)
+	{
+	}
+
+	void UIManager::AddText(std::string text, float x, float y, float scale, Vec3 color, bool clear)
+	{
+		// adds text and increments the id
+		maxId++;
+		textHandler.AddText(text, x, y, scale, color, clear, maxId);
+	}
+
+	void UIManager::AddText(std::string text, float y, float scale, Vec3 color, bool clear)
+	{
+		// Addes text but also centers on the x axis
+		maxId++;
+		float x = midWidth - ((textHandler.GetTextSize(text, scale) / 2));
+		textHandler.AddText(text, x, y, scale, color, clear, maxId);
+	}
+
+	void UIManager::DrawText()
+	{
+		// Draws all the text on the screen
+		textHandler.RenderText();
+	}
+
+	void UIManager::AddButton(Camera& camera, std::string text, float x, float scale, Vec3 textColour, bool clear,
+		Vec2 left, Vec2 right, std::function<void()> btnCallback, Vec3 BackgroundColour, Vec3 actionColour, Vec3 hoverColour, bool centerd)
+	{
+		// increments the number of text elements
+		maxId++;
+		// Center the text in the middle of the button y axis
+		float y = ((left.y + right.y) / 2) - 24;
+
+		// if the button should be centerd on the x axis
+		if (centerd) {
+			left.x = midWidth + left.x;
+			right.x = midWidth + right.x;
+		}
+		// Set x axis placement accounting for the size of the text
+		x = ((left.x + right.x) / 2) - ((textHandler.GetTextSize(text, scale) / 2));
+
+		// Creates the button
+		Button btn;
+		btn.Create(camera, left, right, BackgroundColour, actionColour, hoverColour, btnCallback);
+		// move button to the array
+		buttons[btnCount] = std::move(btn);
+		btnCount++;
+
+		// adds the text to the text handler
+		textHandler.AddText(text, x, y, scale, textColour, clear, maxId);
+	}
+
+	bool UIManager::CheckClicked(Vec2 mousePos)
+	{
+		CheckClick(mousePos);
+		buttonClickedId = -1;
+		for (int i = 0; i < buttons.size(); i++) {
+			// checks to see if the button being index has been clicked
+			bool clicked = buttons[i].CheckClick({ mousePos.x, height - mousePos.y });
+			if (clicked) {
+				buttonClickedId = i;
+				validClick = false;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void UIManager::CheckHover(Vec2 mousePos)
+	{
+		// checks if the mouse is over a button
+		for (int i = 0; i < buttons.size(); i++) {
+			buttons[i].CheckHover({ mousePos.x, height - mousePos.y });
+		}
+	}
+
+	void UIManager::DrawButtons()
+	{
+		// loops through all the buttons
+		for (int i = 0; i < buttons.size(); i++) {
+			if (buttons[i].GetId() != 0)
+				buttons[i].Draw();
+		}
+	}
+
+	void UIManager::ResetAll()
+	{
+		for (int i = 0; i < buttons.size(); i++) {
+			if (buttons[i].GetId() != 0)
+				buttons[i].Reset();
+		}
+	}
+}
+App/Src/Ui/Button.Cpp
+#include "UI/Button.h"
+
+namespace Blocky {
+	void Button::Create(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, Vec3 actionColour, Vec3 hoverColour, std::function<void()> btnCallback)
+	{
+		// sets up the basic variables
+		defultColour = colour;
+		ActionColour = actionColour;
+		HoverColour = hoverColour;
+		callback = btnCallback;
+		// creates the rectangle which is the base of a button
+		RCreate(camera, left, right, colour);
+	}
+
+	bool Button::CheckClick(Vec2 MousePos)
+	{
+		// if the mouse is inside the button
+		if(RIntersect(MousePos)){
+			clicked = true;
+			ChangeColour();
+			return true;
+		}
+		else {
+			clicked = false;
+			return false;
+		}
+	}
+
+	void Button::Draw()
+	{
+		// Draws the buttons rectangle
+		RDraw();
+	}
+
+	void Button::CheckHover(Vec2 MousePos)
+	{
+		if (RIntersect(MousePos)) {
+			SetHover();
+		}
+	}
+
+	void Button::SetHover()
+	{
+		RChangeColour(HoverColour);
+	}
+
+	void Button::ChangeColour()
+	{
+		RChangeColour(ActionColour);
+	}
+
+	void Button::Reset()
+	{
+		RChangeColour(defultColour);
+	}
+
+	void Button::CallCallback()
+	{
+		// calls the callback method
+		// this is a memory location which can be called at runtime and set at runtime
+		callback();
+	}
+}
+App/Src/Math/Vectorbase.Cpp
+
+App/Src/Math/Matrix.Cpp
+#include "math/matrix.h"
+#include <cstring>
+#include "math.h"
+#include <logger.h>
+
+namespace Blocky {
+    Matrix4x4 Matrix::Transpose(Matrix4x4& mat)
+    {
+        Matrix4x4 transpose;
+        //Row 1
+        transpose.v[0] = mat.v[0];
+        transpose.v[1] = mat.v[4];
+        transpose.v[2] = mat.v[8];
+        transpose.v[3] = mat.v[12];
+        //Row 2
+        transpose.v[4] = mat.v[1];
+        transpose.v[5] = mat.v[5];
+        transpose.v[6] = mat.v[9];
+        transpose.v[7] = mat.v[13];
+        //Row 3
+        transpose.v[8] = mat.v[2];
+        transpose.v[9] = mat.v[6];
+        transpose.v[10] = mat.v[10];
+        transpose.v[11] = mat.v[14];
+        //Row 4
+        transpose.v[12] = mat.v[3];
+        transpose.v[13] = mat.v[7];
+        transpose.v[14] = mat.v[11];
+        transpose.v[15] = mat.v[15];
+
+        return transpose;
+    }
+
+    // Takes in two 4x4 matrixs and does left x right 
+    // returns a 4x4 matrix
+    Matrix4x4 Matrix::Mult(Matrix4x4& l, Matrix4x4& r)
+    {
+        Matrix4x4 mult;
+        mult.v[0] = (l.v[0] * r.v[0]) + (l.v[1] * r.v[4]) + (l.v[2] * r.v[8]) + (l.v[3] * r.v[12]);
+        mult.v[1] = (l.v[0] * r.v[1]) + (l.v[1] * r.v[5]) + (l.v[2] * r.v[9]) + (l.v[3] * r.v[13]);
+        mult.v[2] = (l.v[0] * r.v[2]) + (l.v[1] * r.v[6]) + (l.v[2] * r.v[10]) + (l.v[3] * r.v[14]);
+        mult.v[3] = (l.v[0] * r.v[3]) + (l.v[1] * r.v[7]) + (l.v[2] * r.v[11]) + (l.v[3] * r.v[15]);
+
+        mult.v[4] = (l.v[4] * r.v[0]) + (l.v[5] * r.v[4]) + (l.v[6] * r.v[8]) + (l.v[7] * r.v[12]);
+        mult.v[5] = (l.v[4] * r.v[1]) + (l.v[5] * r.v[5]) + (l.v[6] * r.v[9]) + (l.v[7] * r.v[13]);
+        mult.v[6] = (l.v[4] * r.v[2]) + (l.v[5] * r.v[6]) + (l.v[6] * r.v[10]) + (l.v[7] * r.v[14]);
+        mult.v[7] = (l.v[4] * r.v[3]) + (l.v[5] * r.v[7]) + (l.v[6] * r.v[11]) + (l.v[7] * r.v[15]);
+
+        mult.v[8] = (l.v[8] * r.v[0]) + (l.v[9] * r.v[4]) + (l.v[10] * r.v[8]) + (l.v[11] * r.v[12]);
+        mult.v[9] = (l.v[8] * r.v[1]) + (l.v[9] * r.v[5]) + (l.v[10] * r.v[9]) + (l.v[11] * r.v[13]);
+        mult.v[10] = (l.v[8] * r.v[2]) + (l.v[9] * r.v[6]) + (l.v[10] * r.v[10]) + (l.v[11] * r.v[14]);
+        mult.v[11] = (l.v[8] * r.v[3]) + (l.v[9] * r.v[7]) + (l.v[10] * r.v[11]) + (l.v[11] * r.v[15]);
+
+        mult.v[12] = (l.v[12] * r.v[0]) + (l.v[13] * r.v[4]) + (l.v[14] * r.v[8]) + (l.v[15] * r.v[12]);
+        mult.v[13] = (l.v[12] * r.v[1]) + (l.v[13] * r.v[5]) + (l.v[14] * r.v[9]) + (l.v[15] * r.v[13]);
+        mult.v[14] = (l.v[12] * r.v[2]) + (l.v[13] * r.v[6]) + (l.v[14] * r.v[10]) + (l.v[15] * r.v[14]);
+        mult.v[15] = (l.v[12] * r.v[3]) + (l.v[13] * r.v[7]) + (l.v[14] * r.v[11]) + (l.v[15] * r.v[15]);
+
+        return mult;
+    }
+
+    Matrix4x4 Matrix::Mult(const Matrix4x4& l, const Matrix4x4& r)
+    {
+        Matrix4x4 mult;
+        mult.v[0] = (l.v[0] * r.v[0]) + (l.v[1] * r.v[4]) + (l.v[2] * r.v[8]) + (l.v[3] * r.v[12]);
+        mult.v[1] = (l.v[0] * r.v[1]) + (l.v[1] * r.v[5]) + (l.v[2] * r.v[9]) + (l.v[3] * r.v[13]);
+        mult.v[2] = (l.v[0] * r.v[2]) + (l.v[1] * r.v[6]) + (l.v[2] * r.v[10]) + (l.v[3] * r.v[14]);
+        mult.v[3] = (l.v[0] * r.v[3]) + (l.v[1] * r.v[7]) + (l.v[2] * r.v[11]) + (l.v[3] * r.v[15]);
+
+        mult.v[4] = (l.v[4] * r.v[0]) + (l.v[5] * r.v[4]) + (l.v[6] * r.v[8]) + (l.v[7] * r.v[12]);
+        mult.v[5] = (l.v[4] * r.v[1]) + (l.v[5] * r.v[5]) + (l.v[6] * r.v[9]) + (l.v[7] * r.v[13]);
+        mult.v[6] = (l.v[4] * r.v[2]) + (l.v[5] * r.v[6]) + (l.v[6] * r.v[10]) + (l.v[7] * r.v[14]);
+        mult.v[7] = (l.v[4] * r.v[3]) + (l.v[5] * r.v[7]) + (l.v[6] * r.v[11]) + (l.v[7] * r.v[15]);
+
+        mult.v[8] = (l.v[8] * r.v[0]) + (l.v[9] * r.v[4]) + (l.v[10] * r.v[8]) + (l.v[11] * r.v[12]);
+        mult.v[9] = (l.v[8] * r.v[1]) + (l.v[9] * r.v[5]) + (l.v[10] * r.v[9]) + (l.v[11] * r.v[13]);
+        mult.v[10] = (l.v[8] * r.v[2]) + (l.v[9] * r.v[6]) + (l.v[10] * r.v[10]) + (l.v[11] * r.v[14]);
+        mult.v[11] = (l.v[8] * r.v[3]) + (l.v[9] * r.v[7]) + (l.v[10] * r.v[11]) + (l.v[11] * r.v[15]);
+
+        mult.v[12] = (l.v[12] * r.v[0]) + (l.v[13] * r.v[4]) + (l.v[14] * r.v[8]) + (l.v[15] * r.v[12]);
+        mult.v[13] = (l.v[12] * r.v[1]) + (l.v[13] * r.v[5]) + (l.v[14] * r.v[9]) + (l.v[15] * r.v[13]);
+        mult.v[14] = (l.v[12] * r.v[2]) + (l.v[13] * r.v[6]) + (l.v[14] * r.v[10]) + (l.v[15] * r.v[14]);
+        mult.v[15] = (l.v[12] * r.v[3]) + (l.v[13] * r.v[7]) + (l.v[14] * r.v[11]) + (l.v[15] * r.v[15]);
+
+        return mult;
+    }
+
+    Matrix4x4 Matrix::Mult(const Matrix4x4& l, Matrix4x4& r)
+    {
+        Matrix4x4 mult;
+        mult.v[0] = (l.v[0] * r.v[0]) + (l.v[1] * r.v[4]) + (l.v[2] * r.v[8]) + (l.v[3] * r.v[12]);
+        mult.v[1] = (l.v[0] * r.v[1]) + (l.v[1] * r.v[5]) + (l.v[2] * r.v[9]) + (l.v[3] * r.v[13]);
+        mult.v[2] = (l.v[0] * r.v[2]) + (l.v[1] * r.v[6]) + (l.v[2] * r.v[10]) + (l.v[3] * r.v[14]);
+        mult.v[3] = (l.v[0] * r.v[3]) + (l.v[1] * r.v[7]) + (l.v[2] * r.v[11]) + (l.v[3] * r.v[15]);
+
+        mult.v[4] = (l.v[4] * r.v[0]) + (l.v[5] * r.v[4]) + (l.v[6] * r.v[8]) + (l.v[7] * r.v[12]);
+        mult.v[5] = (l.v[4] * r.v[1]) + (l.v[5] * r.v[5]) + (l.v[6] * r.v[9]) + (l.v[7] * r.v[13]);
+        mult.v[6] = (l.v[4] * r.v[2]) + (l.v[5] * r.v[6]) + (l.v[6] * r.v[10]) + (l.v[7] * r.v[14]);
+        mult.v[7] = (l.v[4] * r.v[3]) + (l.v[5] * r.v[7]) + (l.v[6] * r.v[11]) + (l.v[7] * r.v[15]);
+
+        mult.v[8] = (l.v[8] * r.v[0]) + (l.v[9] * r.v[4]) + (l.v[10] * r.v[8]) + (l.v[11] * r.v[12]);
+        mult.v[9] = (l.v[8] * r.v[1]) + (l.v[9] * r.v[5]) + (l.v[10] * r.v[9]) + (l.v[11] * r.v[13]);
+        mult.v[10] = (l.v[8] * r.v[2]) + (l.v[9] * r.v[6]) + (l.v[10] * r.v[10]) + (l.v[11] * r.v[14]);
+        mult.v[11] = (l.v[8] * r.v[3]) + (l.v[9] * r.v[7]) + (l.v[10] * r.v[11]) + (l.v[11] * r.v[15]);
+
+        mult.v[12] = (l.v[12] * r.v[0]) + (l.v[13] * r.v[4]) + (l.v[14] * r.v[8]) + (l.v[15] * r.v[12]);
+        mult.v[13] = (l.v[12] * r.v[1]) + (l.v[13] * r.v[5]) + (l.v[14] * r.v[9]) + (l.v[15] * r.v[13]);
+        mult.v[14] = (l.v[12] * r.v[2]) + (l.v[13] * r.v[6]) + (l.v[14] * r.v[10]) + (l.v[15] * r.v[14]);
+        mult.v[15] = (l.v[12] * r.v[3]) + (l.v[13] * r.v[7]) + (l.v[14] * r.v[11]) + (l.v[15] * r.v[15]);
+
+        return mult;
+    }
+    Matrix4x4 Matrix::Mult(Matrix4x4& l, const Matrix4x4& r)
+    {
+        Matrix4x4 mult;
+        mult.v[0] = (l.v[0] * r.v[0]) + (l.v[1] * r.v[4]) + (l.v[2] * r.v[8]) + (l.v[3] * r.v[12]);
+        mult.v[1] = (l.v[0] * r.v[1]) + (l.v[1] * r.v[5]) + (l.v[2] * r.v[9]) + (l.v[3] * r.v[13]);
+        mult.v[2] = (l.v[0] * r.v[2]) + (l.v[1] * r.v[6]) + (l.v[2] * r.v[10]) + (l.v[3] * r.v[14]);
+        mult.v[3] = (l.v[0] * r.v[3]) + (l.v[1] * r.v[7]) + (l.v[2] * r.v[11]) + (l.v[3] * r.v[15]);
+
+        mult.v[4] = (l.v[4] * r.v[0]) + (l.v[5] * r.v[4]) + (l.v[6] * r.v[8]) + (l.v[7] * r.v[12]);
+        mult.v[5] = (l.v[4] * r.v[1]) + (l.v[5] * r.v[5]) + (l.v[6] * r.v[9]) + (l.v[7] * r.v[13]);
+        mult.v[6] = (l.v[4] * r.v[2]) + (l.v[5] * r.v[6]) + (l.v[6] * r.v[10]) + (l.v[7] * r.v[14]);
+        mult.v[7] = (l.v[4] * r.v[3]) + (l.v[5] * r.v[7]) + (l.v[6] * r.v[11]) + (l.v[7] * r.v[15]);
+
+        mult.v[8] = (l.v[8] * r.v[0]) + (l.v[9] * r.v[4]) + (l.v[10] * r.v[8]) + (l.v[11] * r.v[12]);
+        mult.v[9] = (l.v[8] * r.v[1]) + (l.v[9] * r.v[5]) + (l.v[10] * r.v[9]) + (l.v[11] * r.v[13]);
+        mult.v[10] = (l.v[8] * r.v[2]) + (l.v[9] * r.v[6]) + (l.v[10] * r.v[10]) + (l.v[11] * r.v[14]);
+        mult.v[11] = (l.v[8] * r.v[3]) + (l.v[9] * r.v[7]) + (l.v[10] * r.v[11]) + (l.v[11] * r.v[15]);
+
+        mult.v[12] = (l.v[12] * r.v[0]) + (l.v[13] * r.v[4]) + (l.v[14] * r.v[8]) + (l.v[15] * r.v[12]);
+        mult.v[13] = (l.v[12] * r.v[1]) + (l.v[13] * r.v[5]) + (l.v[14] * r.v[9]) + (l.v[15] * r.v[13]);
+        mult.v[14] = (l.v[12] * r.v[2]) + (l.v[13] * r.v[6]) + (l.v[14] * r.v[10]) + (l.v[15] * r.v[14]);
+        mult.v[15] = (l.v[12] * r.v[3]) + (l.v[13] * r.v[7]) + (l.v[14] * r.v[11]) + (l.v[15] * r.v[15]);
+
+        return mult;
+    }
+
+    Vec4 Matrix::Transform(Matrix4x4& mat, Vec4& vec)
+    {
+        Vec4 rot;
+        rot.x = (vec.x * mat.v[0]) + (vec.y * mat.v[4]) + (vec.z * mat.v[8]) + mat.v[12];
+        rot.y = (vec.x * mat.v[1]) + (vec.y * mat.v[5]) + (vec.z * mat.v[9]) + mat.v[13];
+        rot.z = (vec.x * mat.v[2]) + (vec.y * mat.v[6]) + (vec.z * mat.v[10]) + mat.v[14];
+        rot.w = vec.w;
+        return rot;
+    }
+
+
+    Matrix4x4 Matrix::Rotate(float angle, Vec3& vec)
+    {
+        float C = cos(angle);
+        float S = sin(angle);
+
+        Vec3 n = Vector::Normilise(vec);
+        Vec3 temp = Vector::Mult(n, (1.0f - C));
+
+        Matrix4x4 rotate;
+        // top row
+        rotate.v[0] = C + temp.x * n.x;
+        rotate.v[1] = 0 + temp.x * n.y + S * n.z;
+        rotate.v[2] = 0 + temp.x * n.z - S * n.y;
+
+        // mid row
+        rotate.v[4] = 0 + temp.y * n.x - S * n.z;
+        rotate.v[5] = C + temp.y * n.y;
+        rotate.v[6] = 0 + temp.y * n.z + S * n.x;
+
+        // bottom but not
+        rotate.v[8] = 0 + temp.z * n.x + S * n.y;
+        rotate.v[9] = 0 + temp.z * n.y - S * n.x;
+        rotate.v[10] = C + temp.z * n.z;
+
+        return rotate;
+    }
+
+    Matrix4x4 Matrix::Rotate(Matrix4x4& mat, float angle, Vec3 vec)
+    {
+        float C = cos(angle);
+        float S = sin(angle);
+
+        Vec3 n = Vector::Normilise(vec);
+        Vec3 temp = Vector::Mult(n, (1.0f - C));
+
+        Matrix4x4 rotate;
+        // top row
+        rotate.v[0] = C + temp.x * n.x;
+        rotate.v[1] = 0 + temp.x * n.y + S * n.z;
+        rotate.v[2] = 0 + temp.x * n.z - S * n.y;
+
+        // mid row
+        rotate.v[4] = 0 + temp.y * n.x - S * n.z;
+        rotate.v[5] = C + temp.y * n.y;
+        rotate.v[6] = 0 + temp.y * n.z + S * n.x;
+
+        // bottom but not
+        rotate.v[8] = 0 + temp.z * n.x + S * n.y;
+        rotate.v[9] = 0 + temp.z * n.y - S * n.x;
+        rotate.v[10] = C + temp.z * n.z;
+
+        return Matrix::Mult(mat, rotate);
+    }
+
+    Matrix4x4 Matrix::LookAt(Vec3 Eye, Vec3 Center, Vec3 Up)
+    {
+        Matrix4x4 m = Matrix4x4(0.0f);
+        Vec3 x = Vec3();
+        Vec3 y = Vec3();
+        Vec3 z = Vec3();
+        Vec3 temp = Vector::Sub(Eye, Center);
+
+        z = Vector::Normilise(temp);
+        temp = z;
+        y = Up;
+
+        x = Vector::CrossProduct(y, temp);
+        y = Vector::CrossProduct(temp, x);
+
+        x = Vector::Normilise(x);
+        y = Vector::Normilise(y);
+
+        m.v[0] = x.x;
+        m.v[4] = x.y;
+        m.v[8] = x.z;
+        m.v[12] = -Vector::DotProduct(x, Eye);
+
+        m.v[1] = y.x;
+        m.v[5] = y.y;
+        m.v[9] = y.z;
+        m.v[13] = -Vector::DotProduct(y, Eye);
+
+        m.v[2] = z.x;
+        m.v[6] = z.y;
+        m.v[10] = z.z;
+        m.v[14] = -Vector::DotProduct(z, Eye);
+
+        m.v[15] = 1;
+        return m;
+    }
+
+
+    Matrix4x4 Matrix::Perspective(float fovy, float aspect, float near, float far)
+    {
+        float THalfFov = tan(fovy / 2.0f);
+        Matrix4x4 proj = Matrix4x4(0.0f);
+        proj.v[0] = 1.0f / (aspect * THalfFov);
+        proj.v[5] = 1.0f / THalfFov;
+        proj.v[10] = -((far * near) / (far - near));
+        proj.v[11] = -1.0f;
+        proj.v[14] = -(2.0f * far * near) / (far - near);
+        return proj;
+    }
+
+    Matrix4x4 Matrix::Orthographic(float left, float right, float bottom, float top)
+    {
+        float ReciprocalWidth = 1.0f / (right - left);
+        float ReciprocalHeight = 1.0f / (top - bottom);
+        float fRange = 1.0f / (0.0001f - 1000.0f);
+
+        Matrix4x4 proj = Matrix4x4(0.0f);
+        proj.v[0] = ReciprocalWidth * 2;
+        proj.v[5] = ReciprocalHeight * 2;
+        proj.v[10] = 1.0f;
+        proj.v[12] = -(right + left) * ReciprocalWidth;
+        proj.v[13] = -(top + bottom) * ReciprocalHeight;
+        proj.v[14] = 0.0f;
+        proj.v[15] = 1.0f;
+        return proj;
+    }
+
+    Matrix2x2 Matrix::Mult(Matrix2x2& l, Matrix2x2& r)
+    {
+        Matrix2x2 mul;
+        mul.v[0] = (l.v[0] * r.v[0]) + (l.v[1] * r.v[2]);
+        mul.v[1] = (l.v[0] * r.v[1]) + (l.v[1] * r.v[3]);
+
+        mul.v[2] = (l.v[1] * r.v[0]) + (l.v[3] * r.v[2]);
+        mul.v[3] = (l.v[1] * r.v[1]) + (l.v[3] * r.v[3]);
+        return mul;
+    }
+
+    Matrix4x4 Matrix::Scale(Matrix4x4& mat, Vec3 scale)
+    {
+        mat.v[0] *= scale.x;
+        mat.v[1] *= scale.x;
+        mat.v[2] *= scale.x;
+        mat.v[3] *= scale.x;
+
+        mat.v[4] *= scale.y;
+        mat.v[5] *= scale.y;
+        mat.v[6] *= scale.y;
+        mat.v[7] *= scale.y;
+
+        mat.v[8] *= scale.z;
+        mat.v[9] *= scale.z;
+        mat.v[10] *= scale.z;
+        mat.v[11] *= scale.z;
+
+        return mat;
+    }
+
+    Matrix4x4 Matrix::Scale(Vec3 scale)
+    {
+        return nullptr;
+    }
+
+    Matrix4x4 Matrix::Translate(Vec3& vec)
+    {
+        Matrix4x4 mat;
+        mat.v[3] = mat.v[0] * vec.x + mat.v[1] * vec.y + mat.v[2] * vec.z + mat.v[3];
+        return mat;
+    }
+    Matrix4x4 Matrix::Translate(Vec4& vec)
+    {
+        Matrix4x4 mat;
+        mat.v[3] = vec.x;
+        mat.v[7] = vec.y;
+        mat.v[11] = vec.z;
+        mat.v[11] = vec.w;
+        return mat;
+    }
+
+    Matrix4x4 Matrix::Translate(Matrix4x4& mat, Vec3& vec)
+    {
+        Vec4 v = Vec4(vec.x, vec.y, vec.z, 1);
+        Vec4 top = Vec4(mat.v[0], mat.v[4], mat.v[8], mat.v[12]);
+        Vec4 mid = Vec4(mat.v[1], mat.v[5], mat.v[9], mat.v[13]);
+        Vec4 deck = Vec4(mat.v[2], mat.v[6], mat.v[10], mat.v[14]);
+        Vec4 bot = Vec4(mat.v[3], mat.v[7], mat.v[11], mat.v[15]);
+        mat.v[12] += Vector::DotProduct(top, v);
+        mat.v[13] += Vector::DotProduct(mid, v);
+        mat.v[14] += Vector::DotProduct(deck, v);
+        mat.v[15] += Vector::DotProduct(bot, v);
+
+        return mat;
+    }
+
+    Matrix4x4 Matrix::Translate(Matrix4x4& mat, Vec4& vec)
+    {
+        mat.v[3] = vec.x;
+        mat.v[7] = vec.y;
+        mat.v[11] = vec.z;
+        mat.v[11] = vec.w;
+        return mat;
+    }
+
+    Matrix4x4::Matrix4x4()
+    {
+        memset(v, 0, sizeof(float) * 16);
+        v[0] = 1;
+        v[5] = 1;
+        v[10] = 1;
+        v[15] = 1;
+    }
+
+    Matrix4x4::Matrix4x4(float value)
+    {
+        memset(v, (int)value, sizeof(float) * 16);
+    }
+
+    void Matrix4x4::StripTranslation()
+    {
+        v[3] = 0;
+        v[7] = 0;
+        v[11] = 0;
+        v[12] = 0;
+        v[13] = 0;
+        v[14] = 0;
+        v[15] = 0;
+    }
+
+
+    Matrix4x4::Matrix4x4(float vals[16])
+    {
+        memcpy(v, vals, sizeof(float) * 16);
+    }
+
+    float Matrix4x4::GetValue2D(int row, int col)
+    {
+        return v[(row * 4) + col];
+    }
+
+    void Matrix4x4::Display()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                std::cout << GetValue2D(i, j) << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
+
+    Matrix2x2::Matrix2x2()
+    {
+        memset(v, 0, sizeof(float) * 4);
+        v[0] = 1;
+        v[3] = 1;
+    }
+
+    Matrix2x2::Matrix2x2(float value)
+    {
+        memset(v, (int)value, sizeof(float) * 4);
+    }
+
+    Matrix2x2::Matrix2x2(float f1, float f2, float f3, float f4)
+    {
+        v[0] = f1;
+        v[1] = f2;
+        v[2] = f3;
+        v[3] = f4;
+    }
+
+    Matrix2x2::Matrix2x2(Matrix2x2& m)
+    {
+        for (int i = 0; i < 4; i++)
+            v[i] = m.v[i];
+    }
+
+    Matrix2x2::Matrix2x2(float vals[4])
+    {
+        memcpy(v, vals, sizeof(float) * 4);
+    }
+
+    float Matrix2x2::GetValue2D(int row, int col)
+    {
+        return v[(row * 2) + col];
+    }
+
+    void Matrix2x2::Display()
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            for (int j = 0; j < 2; j++)
+            {
+                Logger::output(INFO, " %d", GetValue2D(i, j));
+            }
+
+        }
+    }
+}
+App/Src/Math/Vector.Cpp
+#include "math/vector.h"
+#include "logger.h"
+
+// Needed for sqrt
+#include <cmath>
+
+namespace Blocky {
+    // Main Vector methods
+    float Vector::DotProduct(Vec2& v1, Vec2& v2)
+    {
+        return (float)(v1.x * v2.x) + (v1.y * v2.y);
+    }
+    float Vector::DotProduct(Vec3& v1, Vec3& v2)
+    {
+        return (float)(v1.x * v2.x) + (v1.y * v2.y) + (v1.Z() * v2.Z());
+    }
+    float Vector::DotProduct(Vec4& v1, Vec4& v2)
+    {
+        return (float)(v1.x * v2.x) + (v1.y * v2.y) + (v1.Z() * v2.Z()) + (v1.W() * v2.W());
+    }
+
+    Vec3 Vector::CrossProduct(Vec3& v1, Vec3& v2)
+    {
+        return Vec3(
+            (v1.y * v2.Z()) - (v1.Z() * v2.y),
+            (v1.Z() * v2.x) - (v1.x * v2.Z()),
+            (v1.x * v2.y) - (v1.y * v2.x)
+        );
+    }
+
+    float Vector::SqaureLength(Vec2& v)
+    {
+        return ((v.x * v.x) + (v.y * v.y));
+    }
+    float Vector::SqaureLength(Vec3& v)
+    {
+        return ((v.x * v.x) + (v.y * v.y) + (v.Z() * v.Z()));
+    }
+    float Vector::SqaureLength(Vec4& v)
+    {
+        return ((v.x * v.x) + (v.y * v.y)
+            + (v.Z() * v.Z()) + (v.W() * v.W()));
+    }
+
+    float Vector::Magnitude(Vec2& v)
+    {
+        return (float)sqrt(SqaureLength(v));
+    }
+    float Vector::Magnitude(Vec3& v)
+    {
+        return (float)sqrt(SqaureLength(v));
+    }
+    float Vector::Magnitude(Vec4& v)
+    {
+        return (float)sqrt(SqaureLength(v));
+    }
+
+    Vec2 Vector::Normilise(Vec2& v)
+    {
+        float oneOverMag = 1.0f / Magnitude(v);
+        return Vec2(v.x * oneOverMag,
+            v.y * oneOverMag);
+    }
+    Vec3 Vector::Normilise(Vec3& v)
+    {
+        float oneOverMag = 1.0f / Magnitude(v);
+        return Vec3(v.x * oneOverMag,
+            v.y * oneOverMag,
+            v.Z() * oneOverMag);
+    }
+    Vec4 Vector::Normilise(Vec4& v)
+    {
+        float oneOverMag = 1.0f / Magnitude(v);
+        return Vec4(v.x * oneOverMag,
+            v.y * oneOverMag,
+            v.Z() * oneOverMag,
+            v.W() * oneOverMag);
+    }
+
+    // Vec2 Start
+    Vec2::Vec2()
+        : x(0.0f), y(0.0f)
+    {
+
+    }
+
+    Vec2::Vec2(const Vec2& vector)
+        : x(vector.x), y(vector.y)
+    {
+
+    }
+
+    Vec2::Vec2(float value)
+        : x(value), y(value)
+    {
+
+    }
+
+    Vec2::Vec2(float _x, float _y)
+        : x(_x), y(_y)
+    {
+
+    }
+
+    void Vec2::Set(float _x, float _y)
+    {
+        x = _x;
+        y = _y;
+    }
+    // Vec2 End
+
+
+    // Vec3 Start
+    Vec3::Vec3()
+        : x(0.0f), y(0.0f), z(0.0f)
+    {
+
+    }
+
+    Vec3::Vec3(const Vec3& vector)
+        : x(vector.x), y(vector.y), z(vector.z)
+    {
+
+    }
+
+    Vec3::Vec3(float value)
+        : x(value), y(value), z(value)
+    {
+
+    }
+
+    Vec3::Vec3(float _x, float _y, float _z)
+        : x(_x), y(_y), z(_z)
+    {
+
+    }
+
+    void Vec3::Set(float _x, float _y, float _z)
+    {
+        x = _x;
+        y = _y;
+        z = _z;
+    }
+    // Vec3 End
+
+
+    // Vec4 Start
+    Vec4::Vec4()
+        : x(0.0f), y(0.0f), z(0.0f), w(0.0f)
+    {
+
+    }
+
+    Vec4::Vec4(const Vec4& vector)
+        : x(vector.x), y(vector.y), z(vector.z), w(vector.w)
+    {
+
+    }
+
+    Vec4::Vec4(float value)
+        : x(value), y(value), z(value), w(value)
+    {
+
+    }
+
+    Vec4::Vec4(float _x, float _y, float _z, float _w)
+        : x(_x), y(_y), z(_z), w(_w)
+    {
+
+    }
+
+    void Vec4::Set(float _x, float _y, float _z, float _w)
+    {
+        x = _x;
+        y = _y;
+        z = _z;
+        w = _w;
+    }
+    // Vec4 End
+}
+App/Src/Graphics/Indexbuffer.Cpp
+#include "graphics/IndexBuffer.h"
+#include "glad/glad.h"
+#include <logger.h>
+
+namespace Blocky {
+	void IndexBuffer::Create(uint32_t* data, uint32_t m_Count)
+	{
+		// sets the amount of vertices and stores for later use
+		count = m_Count;
+		// Creates a buffer
+		glCreateBuffers(1, &id);
+		// Makes the buffer an element buffer
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
+		// Binds the buffer with the supplied data
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), data, GL_STATIC_DRAW);
+	}
+
+	IndexBuffer::~IndexBuffer()
+	{
+		glDeleteBuffers(1, &id);
+	}
+
+	void IndexBuffer::Bind()
+	{
+		// makes this buffer the active one
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, id);
+	}
+
+	void IndexBuffer::UnBind()
+	{
+		// set the active buffer to an empty one removing this as being set
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
+}
+App/Src/Graphics/Spritesheet.Cpp
+#include "graphics/SpriteSheet.h"
+
+namespace Blocky {
+	SpriteSheet::SpriteSheet(std::shared_ptr<Texture> texture, Vec2 min, Vec2 max)
+	{
+		//Sets the texture
+		texture = std::move(texture);
+		// Sets the texture coordinates
+		TexCoords[0] = min.x;
+		TexCoords[1] = min.y;
+
+		TexCoords[2] = max.x;
+		TexCoords[3] = min.y;
+
+		TexCoords[4] = max.x;
+		TexCoords[5] = max.y;
+
+		TexCoords[6] = min.x;
+		TexCoords[7] = max.y;
+	}
+
+	SpriteSheet SpriteSheet::CreateFromCoords(std::shared_ptr<Texture> texture, Vec2 Coords, Vec2 spriteSize)
+	{
+		// Calulates the texture coordinates from the texture size and its posistion in the space
+		float textureCoords[] = {
+			{(Coords.x * spriteSize.x) / texture->GetWidth()},
+			{ (Coords.y * spriteSize.y) / texture->GetHeight() },
+
+			{ ((Coords.x + 1) * spriteSize.x) / texture->GetWidth() },
+			{ ((Coords.y + 1) * spriteSize.y) / texture->GetHeight() }
+		};
+		// Creates a spritesheet with the texture coordinates and the given texture
+		return SpriteSheet(texture, Vec2(textureCoords[0], textureCoords[1]), Vec2(textureCoords[2], textureCoords[3]));
+	}
+}
+App/Src/Graphics/Vertexbuffer.Cpp
+#include "graphics/VertexBuffer.h"
+#include "glad/glad.h"
+#include <logger.h>
+#include <stdio.h>
+#include <graphics/renderer.h>
+
+namespace Blocky {
+	void VertexBuffer::Create(const void* data, uint32_t size)
+	{
+		// Creates a buffer on the gpu
+		glCreateBuffers(1, &id);
+		// Binds the buffer as an array buffer
+		glBindBuffer(GL_ARRAY_BUFFER, id);
+		// Sets that the data will be static as no data will be often changed
+		// fills the buffer with the given data
+		glBufferData(GL_ARRAY_BUFFER, size, data, GL_STATIC_DRAW);
+	}
+
+	void VertexBuffer::CreateEmpty(uint32_t size, GLenum type)
+	{
+		// Creates the buffer
+		glCreateBuffers(1, &id);
+		// Binds the buffer onto the gpu
+		glBindBuffer(GL_ARRAY_BUFFER, id);
+		// Binds the buffer with null data
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * size, NULL, type);
+	}
+
+	void VertexBuffer::AddedData(const void* data, uint32_t size)
+	{
+		// Adds the given data to the active buffer
+		glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
+	}
+
+	VertexBuffer::~VertexBuffer()
+	{
+		// Deletes the current buffer
+		glDeleteBuffers(1, &id);
+	}
+
+	void VertexBuffer::Bind()
+	{
+		// Binds the current buffer on the gpu
+		glBindBuffer(GL_ARRAY_BUFFER, id);
+	}
+
+	void VertexBuffer::UnBind()
+	{
+		// unbinds the buffer by setting the binded buffer to be the null buffer
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+}
+App/Src/Graphics/Vblayout.Cpp
+#include "graphics/VBLayout.h"
+#include "glad/glad.h"
+#include "logger.h"
+
+namespace Blocky {
+	VBLayout::VBLayout()
+		: stride(0)
+	{
+	}
+
+	VBLayout::~VBLayout()
+	{
+	}
+
+	uint32_t VBLayout::GetSize(uint32_t type)
+	{
+		// Converts the type such as float to its byte size eg float = 4 bytes
+		uint32_t size = 0;
+		switch (type)
+		{
+		case GL_FLOAT:
+			size += 4;
+			break;
+		case GL_UNSIGNED_INT:
+			size += 4;
+			break;
+		case GL_BYTE:
+			size += 1;
+			break;
+		default:
+			// Very bad
+			break;
+		}
+		return size;
+	}
+
+	void VBLayout::Push(uint32_t type, uint32_t count, bool normalized)
+	{
+		// addes the given values to the elements vector
+		elements.push_back({ type, count, normalized });
+		// Increase the distance between new blocks of data by the calulated 
+		//size of the type and the number of values
+		stride += count * GetSize(type);
+
+	}
+}
+App/Src/Graphics/Shader.Cpp
+#include "graphics/shader.h"
+#include "glad/glad.h"
+#include <sstream>
+#include <fstream>
+#include "logger.h"
+
+namespace Blocky {
+	void Shader::Create(const char* vPath, const char* fPath)
+	{
+		vertexPath = vPath; fragmentPath = fPath; id = 0;
+
+		// Gets the characters from the verte shader file
+		std::string vCode = ReadShader(vPath);
+		// Gets the characters from the fragment shder file
+		std::string fCode = ReadShader(fPath);
+		// Creates the shader and stores the handle
+		id = CreateShader(vCode, fCode);
+	}
+
+	Shader::~Shader()
+	{
+		glDeleteProgram(id);
+	}
+
+	uint32_t Shader::GetUniformLocation(const char* name)
+	{
+		// Checks to see if the name is in the map
+		// if it is then that is a cache hit and it returns at the position
+		if (uniformLocationCache.find(name) != uniformLocationCache.end())
+			return uniformLocationCache[name];
+
+		// if it is not in the map get the location
+		int location = glGetUniformLocation(id, name);
+
+		if (location == -1) {
+			Logger::output(FATAL, "Failed to find uniform %s", name);
+		}
+		else {
+			// cache the location in the map
+			uniformLocationCache[name] = location;
+		}
+		return location;
+	}
+
+	std::string Shader::ReadShader(const char* path)
+	{
+		// creates a stream to read the file
+		std::fstream stream(path);
+
+		std::string line;
+		std::stringstream data;
+		// loops through the file line by line
+		while (getline(stream, line)) {
+			// push the line and a new line char to the data buffer
+			data << line << '\n';
+		}
+		return data.str();
+	}
+
+	uint32_t Shader::CreateShader(std::string& vertexShader, std::string& fragmentShader)
+	{
+		// Creates a program which is a small amount of memory on the cpu which can be ran
+		uint32_t program = glCreateProgram();
+		// Compiles the vertex shader
+		uint32_t vs = CompileShader(vertexShader.c_str(), GL_VERTEX_SHADER);
+		// Compiles the fragment shader
+		uint32_t fs = CompileShader(fragmentShader, GL_FRAGMENT_SHADER);
+
+		// attachs the shaders to the program giving it instructions on what to excute
+		glAttachShader(program, vs);
+		glAttachShader(program, fs);
+		// links the program puting into useable form on the gpu
+		glLinkProgram(program);
+		// Makes sure there were no error in the program
+		glValidateProgram(program);
+
+		glDeleteShader(vs);
+		glDeleteShader(fs);
+
+		return program;
+	}
+
+	uint32_t Shader::CompileShader(const std::string& source, uint32_t type)
+	{
+		// Creates a shader handle
+		uint32_t id = glCreateShader(type);
+		const char* src = source.c_str();
+		// sets the source code of the shader and tells openGL to prepare it on our shader id
+		glShaderSource(id, 1, &src, nullptr);
+		glCompileShader(id);
+
+		// Gets the result of compileing the shader
+		int result;
+		glGetShaderiv(id, GL_COMPILE_STATUS, &result);
+
+		// if there was an error
+		if (result == GL_FALSE) {
+			// Gets the length if error message and allocates that much memory for c style string
+			int length;
+			glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+			char* message = (char*)malloc(length * sizeof(char));
+
+			// Gets the error from openGL
+			glGetShaderInfoLog(id, length, &length, message);
+			Logger::output(FATAL, "Failed to compile shader %s source %s", message, source.c_str());
+			return 0;
+		}
+
+		return id;
+	}
+
+	void Shader::Bind()
+	{
+		glUseProgram(id);
+	}
+
+	void Shader::UnBind()
+	{
+		glUseProgram(0);
+	}
+
+	/// <summary>
+	/// All the functions bellow handle sending data to the gpu in differant forms
+	/// these methods need to know the location so perform a cache check
+	/// they then send this infomation in the set form
+	/// </summary>
+
+	void Shader::SetUniform1f(const char* name, float value)
+	{
+		glUniform1f(GetUniformLocation(name), value);
+	}
+
+	void Shader::SetUniform1i(const char* name, int value)
+	{
+		glUniform1i(GetUniformLocation(name), value);
+	}
+
+	void Shader::SetUniform3f(const char* name, float f0, float f1, float f2)
+	{
+		glUniform3f(GetUniformLocation(name), f0, f1, f2);
+	}
+
+	void Shader::SetUniform4f(const char* name, float f0, float f1, float f2, float f3)
+	{
+		glUniform4f(GetUniformLocation(name), f0, f1, f2, f3);
+	}
+
+	void Shader::SetMatrix4(const char* name, Matrix4x4 mat)
+	{
+		glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, mat.v);
+	}
+}
+App/Src/Graphics/Vertexarray.Cpp
+#include "graphics/VertexArray.h"
+#include "graphics/VertexBuffer.h"
+#include <logger.h>
+
+namespace Blocky {
+	VertexArray::VertexArray()
+	{
+
+	}
+
+	VertexArray::~VertexArray()
+	{
+		glDeleteVertexArrays(1, &vao);
+	}
+
+	void VertexArray::Create()
+	{
+		glGenVertexArrays(1, &vao);
+	}
+
+	void VertexArray::AddBuffer(VertexBuffer& vb, VBLayout& layout)
+	{
+		// binds the buffers making them active
+		Bind();
+		vb.Bind();
+		// Gets all the elements of the vao eg if a vec2 and vec3 are being sent
+		auto& elements = layout.GetElements();
+		uint32_t offset = 0;
+		for (uint32_t i = 0; i < elements.size(); i++) {
+			// Gets the current element
+			auto element = elements[i];
+			// tells openGL that this vertex array at this point has is going to be set
+			glEnableVertexAttribArray(i);
+			// tells openGL at a posistion the element infomation
+			glVertexAttribPointer(i, element.count, element.type,
+				element.normilized, layout.GetStrite(), (const void*)offset);
+
+			// increase the offset by calulating the size of the type
+			offset += element.count * VBLayout::GetSize(element.type);
+		}
+	}
+
+
+	void VertexArray::Bind()
+	{
+		glBindVertexArray(vao);
+	}
+
+	void VertexArray::UnBind()
+	{
+		glBindVertexArray(0);
+	}
+}
+App/Src/Graphics/Texture.Cpp
+#include "graphics/Texture.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "Image/stb_image.h"
+#include <logger.h>
+#include <UI/Font.h>
+
+namespace Blocky {
+    void Texture::Create(const char* filePath, GLenum type)
+    {
+        // Sets the texture type
+        textureType = GL_TEXTURE_2D;
+        // inits the variables
+        id = 0; path = filePath; width = 0; height = 0; imageData = 0; PixelDataSize = 0;
+        // flips the image to make sure it is how it was draw
+        stbi_set_flip_vertically_on_load(1);
+        // loads the image file in
+        imageData = stbi_load(path, &width, &height, &PixelDataSize, 4);
+        // creates a texture handle
+        glGenTextures(1, &id);
+        // binds the texture id making this texture active
+        glBindTexture(GL_TEXTURE_2D, id);
+
+        // Sets up parameters for the texture
+        // Tells the gpu how to handle picking the pixel from the image in low def
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, type);
+        // Tells the gpu how to handle picking the pixel from the image in high def
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, type);
+        // Tells the gpu how to handle the image how to strech the image in the x axis
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        // Tells the gpu how to handle the image how to strech the image in the y axis
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        // Creates the texture on teh gpu with all the needed data telling the GPU
+        // it ill have red,green,blue and alpha each using 8 bytes
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        // if successful clear free the image
+        if (imageData) {
+            stbi_image_free(imageData);
+        }
+    }
+
+    void Texture::GlyphCreation(FT_Face face)
+    {
+        // sets the texture type
+        textureType = GL_TEXTURE_2D;
+        // creates a texture handle
+        glGenTextures(1, &id);
+        // binds the texture
+        glBindTexture(GL_TEXTURE_2D, id);
+
+        // Creates the texture on teh gpu with all the needed data telling the GPU
+        // it ill have only red meaning only 8 bytes
+        // sets the size to be the glyph size
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+            0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer
+        );
+
+        // Tells the gpu how to handle the image how to strech the image in the x axis
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        // Tells the gpu how to handle the image how to strech the image in the y axis
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // Tells the gpu how to handle picking the pixel from the image in low def
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        // Tells the gpu how to handle picking the pixel from the image in high def
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+
+    Texture::~Texture()
+    {
+        glDeleteTextures(1, &id);
+    }
+
+    void Texture::Bind(uint32_t textureSlot)
+    {
+        // binds the texture at the given slot
+        glActiveTexture(GL_TEXTURE0 + textureSlot);
+        glBindTexture(textureType, id);
+    }
+
+    void Texture::UnBind()
+    {
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+App/Src/Graphics/Renderer.Cpp
+#include "graphics/renderer.h"
+#include <iostream>
+#include <logger.h>
+#include <GLFW/glfw3.h>
+
+namespace Blocky {
+	void Renderer::Clear(Vec3& skyColour)
+	{
+		// redraws the whole screen into the sky colour
+		glClearColor(skyColour.x, skyColour.y, skyColour.z, 1.0f);
+		// Clears the depth buffer and the colour buffer
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+
+	/// <summary>
+	/// Draws non index vertices bind all need varaibles
+	/// count is the amount of triangles to draw
+	/// </summary>
+	/// <param name="vertex"></param>
+	/// <param name="shader"></param>
+	/// <param name="count"></param>
+	void Renderer::DrawArray(VertexArray& vertex, Shader& shader, uint32_t count)
+	{
+		shader.Bind();
+		vertex.Bind();
+		glDrawArrays(GL_TRIANGLES, 0, count);
+		vertex.UnBind();
+		shader.UnBind();
+	}
+
+	void Renderer::NewFrame(Window* win)
+	{
+		// swaps the buffer from the active to resreve
+		glfwSwapBuffers(win->window);
+		// Gets all window events such as mount and keybaord input
+		glfwPollEvents();
+	}
+
+	/// <summary>
+	/// Draws indexed vertices and binds all needed methods
+	/// Asssumes data is in 32bit form
+	/// </summary>
+	/// <param name="vertex"></param>
+	/// <param name="index"></param>
+	/// <param name="shader"></param>
+	void Renderer::DrawElements(VertexArray& vertex, IndexBuffer& index, Shader& shader)
+	{
+		shader.Bind();
+		vertex.Bind();
+		index.Bind();
+		// Draws the indices to the screen
+		glDrawElements(GL_TRIANGLES, index.GetCount(), GL_UNSIGNED_INT, nullptr);
+		shader.UnBind();
+		vertex.UnBind();
+		index.UnBind();
+	}
+}
+App/Src/Graphics/Primitives/Rect.Cpp
+#include "graphics/primitives/rect.h"
+
+namespace Blocky {
+	void Rect::RCreate(Camera& camera, Vec2 left, Vec2 right, Vec3 color)
+	{
+		// Sets the varibles
+		leftBottom = left;
+		rightTop = right;
+		// Creates the vertex array
+		va.Create();
+		va.Bind();
+
+		// The posistion of the corners of the rectangle
+		float verts[8] = {
+			right.x,    right.y,
+			left.x,     right.y,
+			left.x,	    left.y,
+			right.x,	left.y
+		};
+
+		// Creates the vertex buffer which holds the vertex postitions
+		vb.Create(&verts, sizeof(float) * 8);
+
+		// Creates the layout struct which tells the GPU
+		// States the data should be read as two normilsed floats
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		// Adds the vertex buffer and its layout to the vertex array
+		va.AddBuffer(vb, layout);
+		vb.UnBind();
+		// Creates the index buffer
+		ib.Create(indices, 6);
+		ib.Bind();
+		// Creates the shaders by reading the data from the given files
+		shader.Create("app/res/shaders/buttonVert.glsl", "app/res/shaders/buttonFrag.glsl");
+		shader.Bind();
+		// Sends data to the gpu about projection matrix
+		shader.SetMatrix4("projection", camera.GetTextProjection());
+		// Sends data to the gpu about colour of text
+		shader.SetUniform3f("backColour", color.x, color.y, color.z);
+
+	}
+
+	void Rect::RCreateTextured(Camera& camera, Vec2 left, Vec2 right, Vec3 colour, std::string fileName)
+	{
+		// Sets the variables
+		leftBottom = left;
+		rightTop = right;
+		// Creates the vao
+		va.Create();
+		va.Bind();
+
+		// Sets the posisitions of the corners and there texture coordinates
+		float verts[16] = {
+			right.x,    right.y, 1.0f, 1.0f,
+			left.x,     right.y, 0.0f, 1.0f,
+			left.x,	    left.y,  0.0f, 0.0f,
+			right.x,	left.y,  1.0f, 0.0f
+		};
+
+		// Creates the vertex buffer with the data
+		vb.Create(&verts, sizeof(float) * 16);
+
+		// Creates layout and states it should be read as a vec2 and vec2
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		layout.Push(GL_FLOAT, 2, GL_FALSE);
+		// Adds buffer to vao
+		va.AddBuffer(vb, layout);
+		vb.UnBind();
+
+		// Creates index buffer from the indices
+		ib.Create(indices, 6);
+		ib.Bind();
+
+		// Gets the filepath
+		std::string FilePath = "app/res/textures/" + fileName;
+		// Creates the texture from the file path with the nearest setting as it looks best for rects
+		texture.Create(FilePath.c_str(), GL_NEAREST);
+		texture.Bind();
+
+		// Creates the shader
+		shader.Create("app/res/shaders/btnTexturedVert.glsl", "app/res/shaders/btnTextureFrag.glsl");
+		shader.Bind();
+		// Sends matrix to the gpu
+		shader.SetMatrix4("projection", camera.GetTextProjection());
+	}
+
+	void Rect::RDraw()
+	{
+		// If the rect has a texture bind it
+		if (texture.GetId() != 0) {
+			texture.Bind();
+		}
+		// Draw the rectangle
+		DrawElements(va, ib, shader);
+	}
+
+	void Rect::RChangeColour(Vec3 colour)
+	{
+		// Bind the shader
+		shader.Bind();
+		// Send the new colour as 3 seperate floats
+		shader.SetUniform3f("backColour", colour.x, colour.y, colour.z);
+	}
+
+	bool Rect::RIntersect(Vec2 pos)
+	{
+		// if the posistion is within the x bounds of the rect
+		if ((leftBottom.x < pos.x) && (rightTop.x > pos.x)) {
+			// if the posistion is within the y bounds of the rect
+			if ((leftBottom.y < pos.y) && (rightTop.y > pos.y)) {
+				return true;
+			}
+		}
+		return false;
+	}
+}
