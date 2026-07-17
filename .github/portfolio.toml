@@ -1,0 +1,28 @@
+title = "Blocky"
+
+summary = "A voxel-based 3D game built in C++ with a custom OpenGL renderer, procedural terrain, dynamic sky rendering, and supporting mathematics infrastructure."
+
+status = "Completed"
+
+technologies = [
+  "C++",
+  "OpenGL",
+  "GLSL",
+  "GLFW",
+  "FreeType",
+  "FastNoiseLite",
+]
+
+highlights = [
+  "Built a chunk-based voxel world with procedurally generated terrain.",
+  "Implemented custom rendering systems for textured blocks, water, and a dynamic sun and moon.",
+  "Created reusable vector, matrix, collision, camera, shader, texture, and buffer abstractions.",
+  "Developed an in-game user interface and text rendering system using FreeType.",
+]
+
+image = "https://i.ytimg.com/vi/IdpWtqGbYhI/hqdefault.jpg"
+demo_url = "https://youtu.be/IdpWtqGbYhI"
+
+show_repository = true
+include_archived = false
+include_fork = false
