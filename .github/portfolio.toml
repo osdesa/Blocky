@@ -20,7 +20,6 @@ highlights = [
   "Developed an in-game user interface and text rendering system using FreeType.",
 ]
 
-image = "https://i.ytimg.com/vi/IdpWtqGbYhI/hqdefault.jpg"
 demo_url = "https://youtu.be/IdpWtqGbYhI"
 
 show_repository = true
